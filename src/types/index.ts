@@ -37,6 +37,8 @@ export interface MedicalRecord {
 
 export interface AccessGrant {
   id: string;
+  patientAddress?: string;
+  patientName?: string;
   doctorEmail: string;
   doctorName: string;
   doctorAddress: string;
@@ -45,6 +47,20 @@ export interface AccessGrant {
   expiry: number;
   active: boolean;
   txHash: string;
+  sepoliaEtherscanUrl?: string;
+}
+
+export interface PatientAccessNotification {
+  id: string;
+  patientAddress: string;
+  doctorAddress: string;
+  doctorName: string;
+  action: "ACCESS_REQUEST" | "REPORT_VIEW" | "REPORT_DOWNLOAD";
+  reportTitle?: string;
+  sepoliaTxHash: string;
+  blockNumber: number;
+  timestamp: number;
+  read: boolean;
 }
 
 export interface EmergencyAccessLog {
@@ -87,7 +103,7 @@ export interface AISignalAlert {
 export interface BlockchainTransaction {
   txHash: string;
   blockNumber: number;
-  type: "RECORD_ADD" | "GRANT_ACCESS" | "REVOKE_ACCESS" | "EMERGENCY_UNLOCK" | "EMERGENCY_REVOKE";
+  type: "RECORD_ADD" | "GRANT_ACCESS" | "REVOKE_ACCESS" | "RECORD_ACCESS" | "EMERGENCY_UNLOCK" | "EMERGENCY_REVOKE";
   from: string;
   to: string;
   timestamp: number;

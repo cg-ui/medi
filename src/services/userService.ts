@@ -279,5 +279,89 @@ export const userService = {
     });
     if (!res.ok) return [];
     return res.json() as Promise<Array<{ _id: string; email: string; name: string; role: string; walletAddress?: string }>>;
+  },
+
+  async resolvePatientByWallet(walletAddress: string) {
+    const res = await fetch(`/api/users/resolve-wallet/${encodeURIComponent(walletAddress)}`, {
+      headers: getAuthHeaders(),
+      credentials: "include",
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: "Failed to resolve wallet" }));
+      throw new Error(err.error || "Failed to resolve wallet");
+    }
+    return res.json() as Promise<{ address: string; name: string; email: string; role?: string; registered: boolean }>;
+  },
+
+  async getAccessGrants(params?: { doctorAddress?: string; patientAddress?: string }) {
+    const query = new URLSearchParams();
+    if (params?.doctorAddress) query.set("doctorAddress", params.doctorAddress);
+    if (params?.patientAddress) query.set("patientAddress", params.patientAddress);
+    const qs = query.toString();
+    const res = await fetch(`/api/access/grants${qs ? "?" + qs : ""}`, {
+      headers: getAuthHeaders(),
+      credentials: "include",
+    });
+    if (!res.ok) return [];
+    return res.json();
+  },
+
+  async createAccessGrant(grant: Record<string, any>) {
+    const res = await fetch("/api/access/grants", {
+      method: "POST",
+      headers: getAuthHeaders(),
+      credentials: "include",
+      body: JSON.stringify(grant),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Failed to store access grant");
+    return data;
+  },
+
+  async revokeAccessGrant(grantId: string) {
+    const res = await fetch(`/api/access/grants/${encodeURIComponent(grantId)}`, {
+      method: "DELETE",
+      headers: getAuthHeaders(),
+      credentials: "include",
+    });
+    return res.json().catch(() => ({}));
+  },
+
+  async notifyPatientAccess(params: {
+    patientAddress: string;
+    doctorAddress: string;
+    doctorName: string;
+    action: "ACCESS_REQUEST" | "REPORT_VIEW" | "REPORT_DOWNLOAD";
+    reportTitle?: string;
+    sepoliaTxHash: string;
+    blockNumber: number;
+  }) {
+    const res = await fetch("/api/access/notify-patient", {
+      method: "POST",
+      headers: getAuthHeaders(),
+      credentials: "include",
+      body: JSON.stringify(params),
+    });
+    return res.json().catch(() => ({}));
+  },
+
+  async getPatientNotifications(patientAddress?: string) {
+    const qs = patientAddress ? `?patientAddress=${encodeURIComponent(patientAddress)}` : "";
+    const res = await fetch(`/api/access/notifications${qs}`, {
+      headers: getAuthHeaders(),
+      credentials: "include",
+    });
+    if (!res.ok) return [];
+    return res.json();
+  },
+
+  async markNotificationsRead(patientAddress?: string) {
+    const res = await fetch("/api/access/notifications/mark-read", {
+      method: "POST",
+      headers: getAuthHeaders(),
+      credentials: "include",
+      body: JSON.stringify({ patientAddress }),
+    });
+    return res.json().catch(() => ({}));
   }
 };

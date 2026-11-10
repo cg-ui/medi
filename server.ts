@@ -1002,6 +1002,228 @@ app.get("/api/records/documents", (_req, res) => {
   res.json(docs);
 });
 
+// 8. Resolve Patient by Ethereum Wallet Address
+app.get("/api/users/resolve-wallet/:walletAddress", async (req, res) => {
+  try {
+    const { walletAddress } = req.params;
+    const cleanAddr = (walletAddress || "").trim();
+    if (!cleanAddr) {
+      return res.status(400).json({ error: "walletAddress parameter required" });
+    }
+
+    let user: any;
+    if (isDbConnected) {
+      user = await User.findOne({ walletAddress: new RegExp(`^${cleanAddr}$`, "i") }).select("-password");
+    } else {
+      user = mockUsers.find(
+        u => u.walletAddress && u.walletAddress.toLowerCase() === cleanAddr.toLowerCase()
+      );
+    }
+
+    if (!user) {
+      return res.json({
+        address: cleanAddr,
+        name: `Patient (${cleanAddr.slice(0, 6)}...${cleanAddr.slice(-4)})`,
+        email: "",
+        registered: false
+      });
+    }
+
+    res.json({
+      address: user.walletAddress,
+      name: user.name || `Patient (${cleanAddr.slice(0, 6)}...${cleanAddr.slice(-4)})`,
+      email: user.email || "",
+      role: user.role,
+      registered: true
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || "Failed to resolve wallet" });
+  }
+});
+
+// 9. Decentralized Access Control Grants & Patient Notification Audit Store
+interface StoredAccessGrant {
+  id: string;
+  patientAddress: string;
+  patientName: string;
+  doctorEmail: string;
+  doctorName: string;
+  doctorAddress: string;
+  modules: string[];
+  grantedAt: number;
+  expiry: number;
+  active: boolean;
+  txHash: string;
+  sepoliaEtherscanUrl?: string;
+}
+
+interface StoredAccessNotification {
+  id: string;
+  patientAddress: string;
+  doctorAddress: string;
+  doctorName: string;
+  action: "ACCESS_REQUEST" | "REPORT_VIEW" | "REPORT_DOWNLOAD";
+  reportTitle?: string;
+  sepoliaTxHash: string;
+  blockNumber: number;
+  timestamp: number;
+  read: boolean;
+}
+
+const accessGrantsStore: StoredAccessGrant[] = [
+  {
+    id: "grant-001",
+    patientAddress: "0x71C6615b18B1143c7B6528766fC2A9f69744982a",
+    patientName: "Alex Mercer",
+    doctorEmail: "doctor@medichain.io",
+    doctorName: "Dr. Sarah Lin, MD",
+    doctorAddress: "0x93B27e6B26A0695B40974A3D73A6625B81028A1c",
+    modules: ["vitals", "cardiology", "records"],
+    grantedAt: Date.now() - 86400000 * 3,
+    expiry: Date.now() + 86400000 * 27,
+    active: true,
+    txHash: "0x47cab08b4a8a40749930c0fc9f9895e83f990caafb10a0e1aa18ea83bd804eb6",
+    sepoliaEtherscanUrl: "https://sepolia.etherscan.io/tx/0x47cab08b4a8a40749930c0fc9f9895e83f990caafb10a0e1aa18ea83bd804eb6"
+  }
+];
+
+const patientNotificationsStore: StoredAccessNotification[] = [];
+
+app.get("/api/access/grants", (req, res) => {
+  const { doctorAddress, patientAddress } = req.query as { doctorAddress?: string; patientAddress?: string };
+  const now = Date.now();
+  let list = accessGrantsStore.filter(g => g.active && g.expiry > now);
+
+  if (doctorAddress) {
+    list = list.filter(g => g.doctorAddress.toLowerCase() === doctorAddress.toLowerCase());
+  }
+  if (patientAddress) {
+    list = list.filter(g => g.patientAddress.toLowerCase() === patientAddress.toLowerCase());
+  }
+
+  res.json(list);
+});
+
+app.post("/api/access/grants", (req, res) => {
+  try {
+    const {
+      id,
+      patientAddress,
+      patientName,
+      doctorEmail,
+      doctorName,
+      doctorAddress,
+      modules,
+      grantedAt,
+      expiry,
+      txHash,
+      sepoliaEtherscanUrl
+    } = req.body;
+
+    if (!patientAddress || !doctorAddress || !modules) {
+      return res.status(400).json({ error: "patientAddress, doctorAddress, and modules are required" });
+    }
+
+    // Resolve patient name from mockUsers if omitted
+    const matchedPatient = mockUsers.find(
+      u => u.walletAddress && u.walletAddress.toLowerCase() === patientAddress.toLowerCase()
+    );
+
+    const newGrant: StoredAccessGrant = {
+      id: id || `grant-${Date.now()}`,
+      patientAddress,
+      patientName: patientName || matchedPatient?.name || `Patient (${patientAddress.slice(0, 6)}...${patientAddress.slice(-4)})`,
+      doctorEmail: doctorEmail || "",
+      doctorName: doctorName || `Dr. (${doctorAddress.slice(0, 6)}...${doctorAddress.slice(-4)})`,
+      doctorAddress,
+      modules,
+      grantedAt: grantedAt || Date.now(),
+      expiry: expiry || Date.now() + 30 * 86400000,
+      active: true,
+      txHash,
+      sepoliaEtherscanUrl: sepoliaEtherscanUrl || (txHash ? `https://sepolia.etherscan.io/tx/${txHash}` : undefined)
+    };
+
+    // Replace any existing grant between same patient and doctor
+    for (let i = accessGrantsStore.length - 1; i >= 0; i--) {
+      if (
+        accessGrantsStore[i].patientAddress.toLowerCase() === patientAddress.toLowerCase() &&
+        accessGrantsStore[i].doctorAddress.toLowerCase() === doctorAddress.toLowerCase()
+      ) {
+        accessGrantsStore.splice(i, 1);
+      }
+    }
+    accessGrantsStore.unshift(newGrant);
+    res.status(201).json(newGrant);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || "Failed to store access grant" });
+  }
+});
+
+app.delete("/api/access/grants/:id", (req, res) => {
+  const { id } = req.params;
+  const grant = accessGrantsStore.find(g => g.id === id);
+  if (grant) {
+    grant.active = false;
+  }
+  res.json({ success: true });
+});
+
+app.post("/api/access/notify-patient", (req, res) => {
+  try {
+    const {
+      patientAddress,
+      doctorAddress,
+      doctorName,
+      action,
+      reportTitle,
+      sepoliaTxHash,
+      blockNumber
+    } = req.body;
+
+    if (!patientAddress || !doctorAddress || !sepoliaTxHash) {
+      return res.status(400).json({ error: "patientAddress, doctorAddress, and sepoliaTxHash are required" });
+    }
+
+    const notification: StoredAccessNotification = {
+      id: `notif-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      patientAddress,
+      doctorAddress,
+      doctorName: doctorName || `Dr. (${doctorAddress.slice(0, 6)}...${doctorAddress.slice(-4)})`,
+      action: action || "ACCESS_REQUEST",
+      reportTitle,
+      sepoliaTxHash,
+      blockNumber: blockNumber || 4920250,
+      timestamp: Date.now(),
+      read: false
+    };
+
+    patientNotificationsStore.unshift(notification);
+    res.status(201).json(notification);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || "Failed to notify patient" });
+  }
+});
+
+app.get("/api/access/notifications", (req, res) => {
+  const { patientAddress } = req.query as { patientAddress?: string };
+  let list = [...patientNotificationsStore];
+  if (patientAddress) {
+    list = list.filter(n => n.patientAddress.toLowerCase() === patientAddress.toLowerCase());
+  }
+  res.json(list);
+});
+
+app.post("/api/access/notifications/mark-read", (req, res) => {
+  const { patientAddress } = req.body;
+  for (const n of patientNotificationsStore) {
+    if (!patientAddress || n.patientAddress.toLowerCase() === patientAddress.toLowerCase()) {
+      n.read = true;
+    }
+  }
+  res.json({ success: true });
+});
+
 app.get("/api/system/status", (_req, res) => {
   res.json({
     status: "online",

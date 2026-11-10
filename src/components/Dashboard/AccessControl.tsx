@@ -11,17 +11,19 @@ import {
   Unlock, 
   Search,
   ExternalLink,
-  ShieldAlert
+  BellRing,
+  Coins
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { blockchainService } from "../../services/blockchainService";
 import { userService } from "../../services/userService";
-import { AccessGrant } from "../../types";
+import { AccessGrant, PatientAccessNotification } from "../../types";
 import { toast } from "sonner";
 
 export const AccessControl: React.FC = () => {
-  const { walletAddress } = useAuth();
+  const { user, walletAddress } = useAuth();
   const [grants, setGrants] = useState<AccessGrant[]>([]);
+  const [notifications, setNotifications] = useState<PatientAccessNotification[]>([]);
   const [doctorsList, setDoctorsList] = useState<Array<{ email: string; name: string; walletAddress?: string }>>([]);
   
   // Grant modal states
@@ -30,16 +32,25 @@ export const AccessControl: React.FC = () => {
   const [customDoctorEmail, setCustomDoctorEmail] = useState("");
   const [selectedModules, setSelectedModules] = useState<string[]>(["vitals", "records"]);
   const [durationDays, setDurationDays] = useState(30);
+  const [useSepoliaGas, setUseSepoliaGas] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     loadGrants();
     loadDoctors();
+    loadNotifications();
   }, [walletAddress]);
 
   const loadGrants = async () => {
     const list = await blockchainService.getGrants(walletAddress || "0x71C6615b18B1143c7B6528766fC2A9f69744982a");
     setGrants(list);
+  };
+
+  const loadNotifications = async () => {
+    const list = await userService.getPatientNotifications(walletAddress || "0x71C6615b18B1143c7B6528766fC2A9f69744982a");
+    if (Array.isArray(list)) {
+      setNotifications(list);
+    }
   };
 
   const loadDoctors = async () => {
@@ -79,16 +90,18 @@ export const AccessControl: React.FC = () => {
 
     setIsSubmitting(true);
     try {
-      const grant = await blockchainService.grantAccess({
+      await blockchainService.grantAccess({
         patientAddress: walletAddress || "0x71C6615b18B1143c7B6528766fC2A9f69744982a",
+        patientName: user?.name || "Alex Mercer",
         doctorEmail,
         doctorName,
         doctorAddress,
         modules: selectedModules,
-        durationDays
+        durationDays,
+        useSepoliaGas
       });
 
-      toast.success(`Access granted to ${doctorName} on Ethereum chain!`);
+      toast.success(`Access granted to ${doctorName} on Ethereum Sepolia!`);
       setIsModalOpen(false);
       loadGrants();
     } catch (err: any) {
@@ -169,9 +182,18 @@ export const AccessControl: React.FC = () => {
                         Active
                       </span>
                     </div>
-                    <p className="text-[11px] font-mono text-slate-500">
-                      Doctor Wallet: {grant.doctorAddress}
-                    </p>
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] font-mono text-slate-500">
+                      <span>Doctor Wallet: {grant.doctorAddress}</span>
+                      <a
+                        href={`https://sepolia.etherscan.io/tx/${grant.txHash}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-cyan-400 hover:underline flex items-center gap-1"
+                      >
+                        <span>Sepolia Tx: {grant.txHash.slice(0, 12)}...</span>
+                        <ExternalLink className="w-3 h-3" />
+                      </a>
+                    </div>
                     <div className="flex flex-wrap gap-1.5 pt-1">
                       {grant.modules.map(mod => (
                         <span key={mod} className="text-[10px] font-medium px-2 py-0.5 rounded-lg bg-slate-800 text-cyan-300 border border-slate-700">
@@ -204,6 +226,62 @@ export const AccessControl: React.FC = () => {
                 </div>
               );
             })}
+          </div>
+        )}
+      </div>
+
+      {/* Recent Doctor Access Audit & Notifications */}
+      <div className="bg-slate-900/80 border border-slate-800 rounded-2xl overflow-hidden shadow-lg">
+        <div className="p-4 border-b border-slate-800 flex items-center justify-between">
+          <h3 className="font-bold text-sm text-white flex items-center gap-2">
+            <BellRing className="w-4 h-4 text-amber-400" />
+            Recent Doctor Access Audit &amp; Sepolia Logs
+          </h3>
+          <button
+            onClick={loadNotifications}
+            className="text-xs text-cyan-400 hover:underline"
+          >
+            Refresh Logs
+          </button>
+        </div>
+        {notifications.length === 0 ? (
+          <div className="p-8 text-center text-slate-500 text-xs">
+            No doctor access events recorded yet. Any time a doctor accesses, views, or downloads your reports, the Sepolia transaction ID will appear here.
+          </div>
+        ) : (
+          <div className="divide-y divide-slate-800 max-h-72 overflow-y-auto">
+            {notifications.map((n) => (
+              <div key={n.id} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-bold text-white">{n.doctorName}</span>
+                    <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-950/70 text-amber-300 border border-amber-800/70">
+                      {n.action.replace("_", " ")}
+                    </span>
+                    {n.reportTitle && (
+                      <span className="text-slate-300 font-medium">&ldquo;{n.reportTitle}&rdquo;</span>
+                    )}
+                  </div>
+                  <p className="text-[11px] font-mono text-slate-500">
+                    Doctor: {n.doctorAddress} • Block #{n.blockNumber}
+                  </p>
+                </div>
+                <div className="flex items-center gap-3 shrink-0">
+                  <a
+                    href={`https://sepolia.etherscan.io/tx/${n.sepoliaTxHash}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="font-mono text-cyan-400 hover:underline flex items-center gap-1"
+                  >
+                    <span>Tx: {n.sepoliaTxHash.slice(0, 12)}...</span>
+                    <ExternalLink className="w-3 h-3" />
+                  </a>
+                  <span className="text-[10px] text-slate-500">
+                    {new Date(n.timestamp).toLocaleTimeString()}
+                  </span>
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </div>
@@ -309,6 +387,17 @@ export const AccessControl: React.FC = () => {
                   ))}
                 </div>
               </div>
+
+              <label className="flex items-center space-x-2 text-xs text-amber-300 cursor-pointer pt-1">
+                <input
+                  type="checkbox"
+                  checked={useSepoliaGas}
+                  onChange={(e) => setUseSepoliaGas(e.target.checked)}
+                  className="rounded border-amber-700 bg-slate-950 text-amber-500 focus:ring-amber-500"
+                />
+                <Coins className="w-3.5 h-3.5 text-amber-400" />
+                <span>Execute real Sepolia ETH transaction via MetaMask</span>
+              </label>
 
               <div className="flex justify-end space-x-2 pt-3">
                 <button

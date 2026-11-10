@@ -183,6 +183,8 @@ export const Blockchain: React.FC = () => {
                       ? "bg-cyan-950 text-cyan-300 border border-cyan-800/60"
                       : tx.type === "GRANT_ACCESS"
                       ? "bg-emerald-950 text-emerald-300 border border-emerald-800/60"
+                      : tx.type === "RECORD_ACCESS"
+                      ? "bg-purple-950 text-purple-300 border border-purple-800/60"
                       : tx.type === "EMERGENCY_UNLOCK"
                       ? "bg-rose-950 text-rose-300 border border-rose-800/60"
                       : "bg-amber-950 text-amber-300 border border-amber-800/60"
@@ -195,9 +197,19 @@ export const Blockchain: React.FC = () => {
                   <button
                     onClick={() => copyToClipboard(tx.txHash, "Tx Hash")}
                     className="text-slate-500 hover:text-white"
+                    title="Copy Tx Hash"
                   >
                     <Copy className="w-3 h-3" />
                   </button>
+                  <a
+                    href={`https://sepolia.etherscan.io/tx/${tx.txHash}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-slate-500 hover:text-cyan-400"
+                    title="View on Sepolia Etherscan"
+                  >
+                    <ExternalLink className="w-3 h-3" />
+                  </a>
                 </div>
                 <p className="text-slate-300 leading-snug">{tx.details}</p>
                 <div className="flex items-center space-x-3 text-[11px] text-slate-500 font-mono">

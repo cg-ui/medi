@@ -12,11 +12,15 @@ import {
   RefreshCw,
   KeyRound,
   FileText,
-  Coins
+  Coins,
+  Bell,
+  ExternalLink
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { useVitals, SimulationScenario } from "../../context/VitalsContext";
 import { SepoliaFaucetModal } from "../Modals/SepoliaFaucetModal";
+import { userService } from "../../services/userService";
+import { PatientAccessNotification } from "../../types";
 import { toast } from "sonner";
 
 interface TopBarProps {
@@ -45,6 +49,45 @@ export const TopBar: React.FC<TopBarProps> = ({ title, subtitle }) => {
   const [isVerifying, setIsVerifying] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [isFaucetModalOpen, setIsFaucetModalOpen] = useState(false);
+  const [notifications, setNotifications] = useState<PatientAccessNotification[]>([]);
+  const [isNotifOpen, setIsNotifOpen] = useState(false);
+  const seenNotifIdsRef = React.useRef<Set<string>>(new Set());
+
+  React.useEffect(() => {
+    if (user?.role !== "patient") return;
+    const addr = walletAddress || "0x71C6615b18B1143c7B6528766fC2A9f69744982a";
+
+    const fetchNotifs = async () => {
+      try {
+        const list = await userService.getPatientNotifications(addr);
+        if (Array.isArray(list)) {
+          setNotifications(list);
+          for (const n of list) {
+            if (!n.read && !seenNotifIdsRef.current.has(n.id)) {
+              seenNotifIdsRef.current.add(n.id);
+              toast.info(
+                `${n.doctorName} accessed ${n.reportTitle ? `"${n.reportTitle}"` : "your records"} (Sepolia Tx: ${n.sepoliaTxHash.slice(0, 10)}...)`
+              );
+            }
+          }
+        }
+      } catch {
+        // ignore polling error
+      }
+    };
+
+    fetchNotifs();
+    const interval = setInterval(fetchNotifs, 5000);
+    return () => clearInterval(interval);
+  }, [user?.role, walletAddress]);
+
+  const unreadCount = notifications.filter((n) => !n.read).length;
+
+  const handleMarkAllRead = async () => {
+    const addr = walletAddress || "0x71C6615b18B1143c7B6528766fC2A9f69744982a";
+    await userService.markNotificationsRead(addr);
+    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+  };
 
   const copyWallet = () => {
     if (!walletAddress) return;
@@ -225,6 +268,78 @@ export const TopBar: React.FC<TopBarProps> = ({ title, subtitle }) => {
               {copied ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
             </button>
           </div>
+
+          {/* Patient Doctor-Access Notification Bell */}
+          {user?.role === "patient" && (
+            <div className="relative">
+              <button
+                onClick={() => setIsNotifOpen((prev) => !prev)}
+                className="relative p-2 rounded-xl bg-slate-950 border border-slate-800 hover:border-cyan-700 text-slate-300 hover:text-white transition-colors"
+                title="Doctor Access Notifications"
+              >
+                <Bell className="w-4 h-4" />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-rose-500 text-white text-[10px] font-bold flex items-center justify-center">
+                    {unreadCount}
+                  </span>
+                )}
+              </button>
+
+              {isNotifOpen && (
+                <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl z-50 overflow-hidden">
+                  <div className="p-3 border-b border-slate-800 flex items-center justify-between">
+                    <span className="text-xs font-bold text-white">
+                      Doctor Access Alerts ({notifications.length})
+                    </span>
+                    {unreadCount > 0 && (
+                      <button
+                        onClick={handleMarkAllRead}
+                        className="text-[11px] text-cyan-400 hover:underline font-medium"
+                      >
+                        Mark all read
+                      </button>
+                    )}
+                  </div>
+                  <div className="max-h-72 overflow-y-auto divide-y divide-slate-800">
+                    {notifications.length === 0 ? (
+                      <p className="p-4 text-xs text-slate-500 text-center">
+                        No doctor access events yet.
+                      </p>
+                    ) : (
+                      notifications.map((n) => (
+                        <div
+                          key={n.id}
+                          className={`p-3 text-xs space-y-1 ${
+                            n.read ? "bg-slate-900" : "bg-cyan-950/20"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="font-bold text-white">{n.doctorName}</span>
+                            <span className="text-[10px] text-slate-500">
+                              {new Date(n.timestamp).toLocaleTimeString()}
+                            </span>
+                          </div>
+                          <p className="text-slate-300 text-[11px]">
+                            {n.action.replace("_", " ")}
+                            {n.reportTitle ? `: ${n.reportTitle}` : ""}
+                          </p>
+                          <a
+                            href={`https://sepolia.etherscan.io/tx/${n.sepoliaTxHash}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1 font-mono text-[10px] text-cyan-400 hover:underline"
+                          >
+                            <span>Sepolia Tx: {n.sepoliaTxHash.slice(0, 14)}...</span>
+                            <ExternalLink className="w-2.5 h-2.5" />
+                          </a>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Sepolia Faucet ETH Hub */}
           <button
