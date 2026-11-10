@@ -266,6 +266,34 @@ class BlockchainService {
     return { balanceEth: 0.125, formatted: "0.1250 Sepolia ETH (Simulated)" };
   }
 
+  async getAuthorizedAccounts(): Promise<string[]> {
+    if (!this.isMetaMaskAvailable()) return [];
+    try {
+      const provider = new BrowserProvider((window as any).ethereum);
+      const accounts = await provider.send("eth_accounts", []);
+      return Array.isArray(accounts) ? accounts : [];
+    } catch {
+      return [];
+    }
+  }
+
+  async requestAccountSelection(): Promise<string[]> {
+    if (!this.isMetaMaskAvailable()) {
+      throw new Error("MetaMask extension is not installed. Please install MetaMask to select an account.");
+    }
+    const eth = (window as any).ethereum;
+    await eth.request({
+      method: "wallet_requestPermissions",
+      params: [{ eth_accounts: {} }],
+    });
+    const provider = new BrowserProvider(eth);
+    const accounts = await provider.send("eth_accounts", []);
+    if (!accounts || accounts.length === 0) {
+      throw new Error("No MetaMask account was selected.");
+    }
+    return accounts;
+  }
+
   async connectMetaMask(): Promise<string> {
     if (!this.isMetaMaskAvailable()) {
       throw new Error("MetaMask is not installed. Please install MetaMask browser extension or use standard login.");
@@ -279,14 +307,8 @@ class BlockchainService {
   }
 
   async getConnectedAccount(): Promise<string | null> {
-    if (!this.isMetaMaskAvailable()) return null;
-    try {
-      const provider = new BrowserProvider((window as any).ethereum);
-      const accounts = await provider.send("eth_accounts", []);
-      return accounts.length > 0 ? accounts[0] : null;
-    } catch {
-      return null;
-    }
+    const accounts = await this.getAuthorizedAccounts();
+    return accounts.length > 0 ? accounts[0] : null;
   }
 
   async getActiveMetaMaskAccount(): Promise<string | null> {
@@ -324,7 +346,7 @@ class BlockchainService {
   }
 
   /**
-   * Cryptographically signs a message using MetaMask (or fallback deterministic EVM signer)
+   * Cryptographically signs a message using MetaMask with the exact selected account
    */
   async signChallengeWithMetaMask(
     message: string, 
@@ -333,7 +355,9 @@ class BlockchainService {
     if (this.isMetaMaskAvailable()) {
       const provider = new BrowserProvider((window as any).ethereum);
       await provider.send("eth_requestAccounts", []);
-      const signer = await provider.getSigner();
+      const signer = expectedAddress
+        ? await provider.getSigner(expectedAddress)
+        : await provider.getSigner();
       const signerAddress = await signer.getAddress();
       const signature = await signer.signMessage(message);
       return { signature, signerAddress };

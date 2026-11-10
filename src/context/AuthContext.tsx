@@ -10,12 +10,16 @@ interface AuthContextType {
   isDemo: boolean;
   walletAddress: string;
   activeMetaMaskAddress: string | null;
+  availableMetaMaskAccounts: string[];
+  setSelectedMetaMaskAccount: (addr: string) => void;
   isWalletMismatched: boolean;
   isSignatureVerified: boolean;
   isMetaMaskAvailable: boolean;
   login: (email: string, password: string) => Promise<void>;
   signup: (data: { email: string; password: string; role: UserRole; name?: string; walletAddress?: string }) => Promise<void>;
   loginWithMetaMaskSignature: (customAddress?: string) => Promise<void>;
+  signupWithMetaMaskSignature: (params: { name: string; role: UserRole; customAddress?: string }) => Promise<void>;
+  switchMetaMaskAccount: () => Promise<string | null>;
   logout: () => Promise<void>;
   connectWallet: () => Promise<string>;
   setWalletAddress: (addr: string) => void;
@@ -34,39 +38,54 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isDemo, setIsDemo] = useState(false);
   const [walletAddress, setWalletAddress] = useState<string>("");
   const [activeMetaMaskAddress, setActiveMetaMaskAddress] = useState<string | null>(null);
+  const [availableMetaMaskAccounts, setAvailableMetaMaskAccounts] = useState<string[]>([]);
   const [isWalletMismatched, setIsWalletMismatched] = useState<boolean>(false);
   const [isSignatureVerified, setIsSignatureVerified] = useState<boolean>(false);
   const [warningDismissed, setWarningDismissed] = useState<boolean>(false);
   const isMetaMaskAvailable = blockchainService.isMetaMaskAvailable();
+
+  const setSelectedMetaMaskAccount = useCallback((addr: string) => {
+    setActiveMetaMaskAddress(addr);
+  }, []);
 
   // Initial session check
   useEffect(() => {
     checkCurrentUser();
   }, []);
 
-  // Listen to MetaMask account changes in browser
+  // Listen to MetaMask account changes only when user is signed in (or has already selected an account)
   useEffect(() => {
-    const checkActive = async () => {
-      const active = await blockchainService.getActiveMetaMaskAccount();
-      setActiveMetaMaskAddress(active);
-    };
-    checkActive();
+    if (user) {
+      const checkActive = async () => {
+        const accounts = await blockchainService.getAuthorizedAccounts();
+        setAvailableMetaMaskAccounts(accounts);
+        if (accounts.length > 0 && !activeMetaMaskAddress) {
+          setActiveMetaMaskAddress(accounts[0]);
+        }
+      };
+      checkActive();
+    }
 
     const unsubscribe = blockchainService.onAccountsChanged((accounts) => {
+      setAvailableMetaMaskAccounts(accounts || []);
       if (accounts && accounts.length > 0) {
         const newAddr = accounts[0];
         setActiveMetaMaskAddress(newAddr);
         setWarningDismissed(false);
-        toast.info(`MetaMask account switched to: ${newAddr.slice(0, 6)}...${newAddr.slice(-4)}`);
+        if (user) {
+          toast.info(`MetaMask account switched to: ${newAddr.slice(0, 6)}...${newAddr.slice(-4)}`);
+        }
       } else {
         setActiveMetaMaskAddress(null);
         setIsWalletMismatched(false);
-        toast.info("MetaMask disconnected");
+        if (user) {
+          toast.info("MetaMask disconnected");
+        }
       }
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [user]);
 
   // Check mismatch between active MetaMask account and registered user wallet
   useEffect(() => {
@@ -154,32 +173,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   /**
-   * MetaMask Signature Challenge Authentication Flow
+   * MetaMask Signature Challenge Login Flow (Strict 1-to-1 Wallet Lookup)
    */
   const loginWithMetaMaskSignature = async (customAddress?: string) => {
     try {
       let targetAddr = customAddress;
       if (!targetAddr) {
         if (isMetaMaskAvailable) {
-          targetAddr = await blockchainService.connectMetaMask();
+          // Prompt MetaMask account selector so user chooses which account to sign in with
+          const accounts = await blockchainService.requestAccountSelection();
+          setAvailableMetaMaskAccounts(accounts);
+          targetAddr = accounts[0];
+          setActiveMetaMaskAddress(targetAddr);
         } else {
-          targetAddr = user?.walletAddress || walletAddress || "0x71C6615b18B1143c7B6528766fC2A9f69744982a";
+          throw new Error("MetaMask extension is not detected. Please install or unlock MetaMask.");
         }
       }
 
       // 1. Request cryptographic challenge nonce from server
-      const { nonce, message } = await userService.getAuthNonce(user?.email, targetAddr);
+      const { message } = await userService.getAuthNonce(undefined, targetAddr);
 
-      // 2. Prompt user to sign challenge with MetaMask (or simulated EVM key)
-      toast.info("Requesting cryptographic signature from Ethereum wallet...");
+      // 2. Prompt user to sign challenge with the exact selected MetaMask account
+      toast.info(`Requesting signature from ${targetAddr.slice(0, 6)}...${targetAddr.slice(-4)}...`);
       const { signature, signerAddress } = await blockchainService.signChallengeWithMetaMask(message, targetAddr);
 
-      // 3. Verify signature on backend
+      // 3. Verify signature on backend strictly by walletAddress
       const res = await userService.loginWithMetaMask({
         walletAddress: signerAddress,
         signature,
-        message,
-        email: user?.email
+        message
       });
 
       setUser(res.user);
@@ -190,10 +212,77 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setWarningDismissed(false);
       setIsDemo(!!res.isDemo);
 
-      toast.success(`MetaMask Signature Verified! Signed by ${signerAddress.slice(0, 6)}...${signerAddress.slice(-4)}`);
+      toast.success(`Signed in as ${res.user.name} (${signerAddress.slice(0, 6)}...${signerAddress.slice(-4)})`);
     } catch (err: any) {
       toast.error(err.message || "MetaMask signature authentication failed");
       throw err;
+    }
+  };
+
+  /**
+   * MetaMask Signature Registration Flow (No Email Required, 1-to-1 Unique Wallet)
+   */
+  const signupWithMetaMaskSignature = async (params: { name: string; role: UserRole; customAddress?: string }) => {
+    try {
+      let targetAddr = params.customAddress;
+      if (!targetAddr) {
+        if (isMetaMaskAvailable) {
+          const accounts = await blockchainService.requestAccountSelection();
+          setAvailableMetaMaskAccounts(accounts);
+          targetAddr = accounts[0];
+          setActiveMetaMaskAddress(targetAddr);
+        } else {
+          throw new Error("MetaMask extension not detected. Please install or unlock MetaMask.");
+        }
+      }
+
+      // 1. Request cryptographic challenge nonce from server
+      const { message } = await userService.getAuthNonce(undefined, targetAddr);
+
+      // 2. Prompt user to sign challenge with the exact selected MetaMask account
+      toast.info(`Sign in MetaMask (${targetAddr.slice(0, 6)}...${targetAddr.slice(-4)}) to create your profile...`);
+      const { signature, signerAddress } = await blockchainService.signChallengeWithMetaMask(message, targetAddr);
+
+      // 3. Register unique user bound 1-to-1 to signerAddress
+      const res = await userService.signupWithMetaMask({
+        walletAddress: signerAddress,
+        signature,
+        message,
+        name: params.name,
+        role: params.role
+      });
+
+      setUser(res.user);
+      setWalletAddress(res.user.walletAddress || signerAddress);
+      setActiveMetaMaskAddress(signerAddress);
+      setIsSignatureVerified(true);
+      setIsWalletMismatched(false);
+      setWarningDismissed(false);
+      setIsDemo(!!res.isDemo);
+
+      toast.success(`Account created & verified for ${res.user.name} (${signerAddress.slice(0, 6)}...${signerAddress.slice(-4)})`);
+    } catch (err: any) {
+      toast.error(err.message || "MetaMask registration failed");
+      throw err;
+    }
+  };
+
+  /**
+   * Prompts MetaMask account selector so a different person can choose their own MetaMask account
+   */
+  const switchMetaMaskAccount = async (): Promise<string | null> => {
+    try {
+      const accounts = await blockchainService.requestAccountSelection();
+      setAvailableMetaMaskAccounts(accounts);
+      const chosen = accounts[0];
+      setActiveMetaMaskAddress(chosen);
+      toast.info(`Selected MetaMask account: ${chosen.slice(0, 6)}...${chosen.slice(-4)}`);
+      return chosen;
+    } catch (err: any) {
+      if (err?.code !== 4001) {
+        toast.error(err?.message || "Could not switch MetaMask account");
+      }
+      return null;
     }
   };
 
@@ -313,6 +402,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
     setUser(null);
     setWalletAddress("");
+    setActiveMetaMaskAddress(null);
+    setAvailableMetaMaskAccounts([]);
     setIsSignatureVerified(false);
     setIsWalletMismatched(false);
     toast.info("Logged out successfully");
@@ -368,12 +459,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isDemo,
         walletAddress,
         activeMetaMaskAddress,
+        availableMetaMaskAccounts,
+        setSelectedMetaMaskAccount,
         isWalletMismatched,
         isSignatureVerified,
         isMetaMaskAvailable,
         login,
         signup,
         loginWithMetaMaskSignature,
+        signupWithMetaMaskSignature,
+        switchMetaMaskAccount,
         logout,
         connectWallet,
         setWalletAddress,

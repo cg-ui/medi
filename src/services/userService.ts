@@ -155,11 +155,31 @@ export const userService = {
     return data as { nonce: string; message: string };
   },
 
+  async signupWithMetaMask(params: {
+    walletAddress: string;
+    signature: string;
+    message: string;
+    name: string;
+    role: "patient" | "doctor";
+  }) {
+    const res = await fetch("/api/auth/metamask-signup", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify(params),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "MetaMask registration failed");
+    if (data.token) {
+      localStorage.setItem(TOKEN_KEY, data.token);
+    }
+    return data as LoginResponse;
+  },
+
   async loginWithMetaMask(params: {
     walletAddress: string;
     signature: string;
     message: string;
-    email?: string;
   }) {
     const res = await fetch("/api/auth/metamask-login", {
       method: "POST",

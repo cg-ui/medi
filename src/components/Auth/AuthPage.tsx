@@ -2,9 +2,6 @@ import React, { useState } from "react";
 import { 
   Activity, 
   ShieldCheck, 
-  Key, 
-  Lock, 
-  Mail, 
   User as UserIcon, 
   Stethoscope, 
   Heart, 
@@ -12,7 +9,8 @@ import {
   ArrowRight,
   KeyRound,
   RefreshCw,
-  CheckCircle2
+  CheckCircle2,
+  ArrowLeftRight
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { UserRole } from "../../types";
@@ -20,74 +18,49 @@ import { UserRole } from "../../types";
 export const AuthPage: React.FC = () => {
   const { 
     login, 
-    signup, 
     loginWithMetaMaskSignature,
-    connectWallet, 
-    walletAddress, 
+    signupWithMetaMaskSignature,
+    switchMetaMaskAccount,
     activeMetaMaskAddress,
+    availableMetaMaskAccounts,
+    setSelectedMetaMaskAccount,
     isMetaMaskAvailable 
   } = useAuth();
 
   const [isLogin, setIsLogin] = useState(true);
   const [role, setRole] = useState<UserRole>("patient");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [name, setName] = useState("");
-  const [customWallet, setCustomWallet] = useState("");
   const [loading, setLoading] = useState(false);
   const [metaMaskLoading, setMetaMaskLoading] = useState(false);
-  const [verifyOnSignup, setVerifyOnSignup] = useState(true);
 
-  const handleUseMetaMask = async () => {
+  const handleSelectOrSwitchWallet = async () => {
     try {
-      let addr = activeMetaMaskAddress;
-      if (!addr) {
-        addr = await connectWallet();
-      }
-      if (addr) {
-        setCustomWallet(addr);
-      }
+      await switchMetaMaskAccount();
     } catch {
-      // handled
+      // handled in context
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
+  const handleMetaMaskLogin = async () => {
+    setMetaMaskLoading(true);
     try {
-      if (isLogin) {
-        await login(email, password);
-      } else {
-        const chosenWallet = customWallet.trim() || activeMetaMaskAddress || "";
-        await signup({
-          email,
-          password,
-          role,
-          name: name || email.split("@")[0],
-          walletAddress: chosenWallet
-        });
-
-        // If user opted to verify via MetaMask signature post account creation:
-        if (verifyOnSignup && (activeMetaMaskAddress || isMetaMaskAvailable)) {
-          try {
-            await loginWithMetaMaskSignature(chosenWallet || undefined);
-          } catch {
-            // Account was created; user can still sign later in dashboard
-          }
-        }
-      }
+      await loginWithMetaMaskSignature(activeMetaMaskAddress || undefined);
     } catch {
       // toast shown in context
     } finally {
-      setLoading(false);
+      setMetaMaskLoading(false);
     }
   };
 
-  const handleMetaMaskSignatureLogin = async () => {
+  const handleMetaMaskSignup = async (e: React.FormEvent) => {
+    e.preventDefault();
     setMetaMaskLoading(true);
     try {
-      await loginWithMetaMaskSignature();
+      await signupWithMetaMaskSignature({
+        name: name.trim(),
+        role,
+        customAddress: activeMetaMaskAddress || undefined,
+      });
     } catch {
       // toast shown in context
     } finally {
@@ -130,44 +103,204 @@ export const AuthPage: React.FC = () => {
           </p>
         </div>
 
-        {/* Primary Action: MetaMask Signature Login */}
-        <div className="bg-gradient-to-r from-cyan-950/70 via-slate-900 to-teal-950/70 border border-cyan-800/80 rounded-2xl p-4 shadow-xl backdrop-blur-md">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-bold text-white flex items-center gap-1.5">
-              <KeyRound className="w-4 h-4 text-cyan-400" />
-              MetaMask Signature Authentication
-            </span>
-            <span className="text-[10px] font-semibold uppercase px-2 py-0.5 rounded-full bg-cyan-950 text-cyan-300 border border-cyan-700">
-              Zero-Password Web3
-            </span>
+        {/* Explicit MetaMask Account Selector (No Default Account Pre-Selected) */}
+        <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 shadow-xl backdrop-blur-md space-y-3">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center space-x-2.5 min-w-0">
+              <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${activeMetaMaskAddress ? "bg-emerald-400 animate-pulse" : "bg-slate-600"}`} />
+              <div className="min-w-0">
+                <span className="text-[10px] uppercase tracking-wider font-bold text-slate-400 block">
+                  Selected MetaMask Account
+                </span>
+                <span className="text-xs font-mono font-semibold text-white truncate block">
+                  {activeMetaMaskAddress
+                    ? `${activeMetaMaskAddress.slice(0, 10)}...${activeMetaMaskAddress.slice(-8)}`
+                    : isMetaMaskAvailable
+                      ? "None selected — choose account"
+                      : "MetaMask not detected"}
+                </span>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={handleSelectOrSwitchWallet}
+              className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-cyan-300 text-[11px] font-semibold flex items-center space-x-1.5 shrink-0 transition-colors"
+            >
+              <ArrowLeftRight className="w-3.5 h-3.5" />
+              <span>{activeMetaMaskAddress ? "Change Account" : "Choose Account"}</span>
+            </button>
           </div>
-          <p className="text-[11px] text-slate-400 leading-relaxed mb-3">
-            Sign a cryptographic challenge using your Ethereum private key to instantly verify ownership and access clinical records.
-          </p>
-          <button
-            type="button"
-            onClick={handleMetaMaskSignatureLogin}
-            disabled={metaMaskLoading}
-            className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-cyan-600 via-teal-600 to-emerald-600 hover:from-cyan-500 hover:to-emerald-500 text-white font-bold text-xs shadow-lg shadow-cyan-600/30 flex items-center justify-center space-x-2 transition-all disabled:opacity-50"
-          >
-            {metaMaskLoading ? (
-              <>
-                <RefreshCw className="w-4 h-4 animate-spin" />
-                <span>Waiting for MetaMask Signature...</span>
-              </>
-            ) : (
-              <>
-                <Wallet className="w-4 h-4" />
-                <span>Sign In with MetaMask Signature</span>
-              </>
-            )}
-          </button>
+
+          {availableMetaMaskAccounts.length > 1 && (
+            <div className="pt-2 border-t border-slate-800 space-y-1.5">
+              <span className="text-[10px] uppercase tracking-wider font-semibold text-slate-400 block">
+                Authorized MetaMask Accounts ({availableMetaMaskAccounts.length})
+              </span>
+              <div className="grid grid-cols-1 gap-1.5 max-h-28 overflow-y-auto">
+                {availableMetaMaskAccounts.map((acc) => {
+                  const isSelected = activeMetaMaskAddress?.toLowerCase() === acc.toLowerCase();
+                  return (
+                    <button
+                      key={acc}
+                      type="button"
+                      onClick={() => setSelectedMetaMaskAccount(acc)}
+                      className={`px-2.5 py-1.5 rounded-lg border text-left font-mono text-[11px] flex items-center justify-between transition-all ${
+                        isSelected
+                          ? "bg-cyan-950/70 border-cyan-600 text-cyan-200"
+                          : "bg-slate-950 border-slate-800 text-slate-400 hover:text-white hover:border-slate-700"
+                      }`}
+                    >
+                      <span className="truncate">{acc}</span>
+                      {isSelected && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0 ml-2" />}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* MetaMask-Only Authentication Card */}
+        <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-6 shadow-2xl backdrop-blur-md space-y-5">
+          {/* Switch Tab */}
+          <div className="flex p-1 bg-slate-950 rounded-xl border border-slate-800">
+            <button
+              type="button"
+              onClick={() => setIsLogin(true)}
+              className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-all ${
+                isLogin ? "bg-cyan-600 text-white shadow-sm" : "text-slate-400 hover:text-white"
+              }`}
+            >
+              Sign In with MetaMask
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsLogin(false)}
+              className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-all ${
+                !isLogin ? "bg-cyan-600 text-white shadow-sm" : "text-slate-400 hover:text-white"
+              }`}
+            >
+              Create Account
+            </button>
+          </div>
+
+          {isLogin ? (
+            <div className="space-y-4">
+              <div className="p-3.5 rounded-xl bg-cyan-950/30 border border-cyan-800/60 space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                    <KeyRound className="w-4 h-4 text-cyan-400" />
+                    Zero-Email Web3 Sign In
+                  </span>
+                  <span className="text-[10px] font-semibold uppercase px-2 py-0.5 rounded-full bg-cyan-950 text-cyan-300 border border-cyan-700">
+                    EIP-191
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-400 leading-relaxed">
+                  Each MetaMask address maps uniquely to one MediChain profile. Sign the challenge with your active wallet to access your account.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleMetaMaskLogin}
+                disabled={metaMaskLoading}
+                className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-cyan-600 via-teal-600 to-emerald-600 hover:from-cyan-500 hover:to-emerald-500 text-white font-bold text-xs shadow-lg shadow-cyan-600/30 flex items-center justify-center space-x-2 transition-all disabled:opacity-50"
+              >
+                {metaMaskLoading ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    <span>Waiting for MetaMask Signature...</span>
+                  </>
+                ) : (
+                  <>
+                    <Wallet className="w-4 h-4" />
+                    <span>Sign In with MetaMask Signature</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </>
+                )}
+              </button>
+            </div>
+          ) : (
+            <form onSubmit={handleMetaMaskSignup} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">Full Legal Name</label>
+                <div className="relative">
+                  <UserIcon className="w-4 h-4 text-slate-500 absolute left-3 top-2.5" />
+                  <input
+                    type="text"
+                    placeholder="e.g. Eleanor Vance"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-9 pr-3 py-2 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-cyan-500"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">Account Role</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setRole("patient")}
+                    className={`p-2.5 rounded-xl border text-xs font-semibold flex items-center justify-center space-x-2 transition-all ${
+                      role === "patient"
+                        ? "bg-cyan-950/80 border-cyan-600 text-white"
+                        : "bg-slate-950 border-slate-800 text-slate-400"
+                    }`}
+                  >
+                    <Heart className="w-4 h-4 text-cyan-400" />
+                    <span>Patient</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setRole("doctor")}
+                    className={`p-2.5 rounded-xl border text-xs font-semibold flex items-center justify-center space-x-2 transition-all ${
+                      role === "doctor"
+                        ? "bg-purple-950/80 border-purple-600 text-white"
+                        : "bg-slate-950 border-slate-800 text-slate-400"
+                    }`}
+                  >
+                    <Stethoscope className="w-4 h-4 text-purple-400" />
+                    <span>Doctor / MD</span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="p-3 rounded-xl bg-slate-950 border border-slate-800/80 flex items-start space-x-2 text-[11px] text-slate-300">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                <span>
+                  No email or password required. Your active MetaMask wallet will sign an EIP-191 proof to bind uniquely to this profile.
+                </span>
+              </div>
+
+              <button
+                type="submit"
+                disabled={metaMaskLoading}
+                className="w-full py-3 rounded-xl bg-gradient-to-r from-cyan-600 to-teal-600 hover:from-cyan-500 hover:to-teal-500 text-white font-bold text-xs shadow-lg shadow-cyan-600/25 transition-all flex items-center justify-center space-x-2 disabled:opacity-50"
+              >
+                {metaMaskLoading ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    <span>Waiting for MetaMask Signature...</span>
+                  </>
+                ) : (
+                  <>
+                    <Wallet className="w-4 h-4" />
+                    <span>Sign Up & Verify with MetaMask</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </>
+                )}
+              </button>
+            </form>
+          )}
         </div>
 
         {/* 1-Click Demo Quick Access Buttons */}
         <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 shadow-xl backdrop-blur-md space-y-2">
           <span className="text-[11px] uppercase tracking-wider font-bold text-slate-400 block text-center">
-            Or Choose A Pre-Configured Demo Persona
+            Or Explore Pre-Configured Demo Personas
           </span>
           <div className="grid grid-cols-2 gap-2">
             <button
@@ -181,7 +314,7 @@ export const AuthPage: React.FC = () => {
                 <span className="text-[10px] text-cyan-400 font-semibold uppercase">Patient</span>
               </div>
               <p className="text-xs font-bold text-white mt-1">Alex Mercer</p>
-              <p className="text-[10px] text-slate-400 truncate">patient@medichain.io</p>
+              <p className="text-[10px] text-slate-400 font-mono truncate">0x71C6...982a</p>
             </button>
 
             <button
@@ -195,175 +328,15 @@ export const AuthPage: React.FC = () => {
                 <span className="text-[10px] text-purple-400 font-semibold uppercase">Doctor</span>
               </div>
               <p className="text-xs font-bold text-white mt-1">Dr. Sarah Lin</p>
-              <p className="text-[10px] text-slate-400 truncate">doctor@medichain.io</p>
+              <p className="text-[10px] text-slate-400 font-mono truncate">0x93B2...8A1c</p>
             </button>
           </div>
-        </div>
-
-        {/* Authentication Card (Email/Password or Account Creation) */}
-        <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-6 shadow-2xl backdrop-blur-md">
-          {/* Switch Tab */}
-          <div className="flex p-1 bg-slate-950 rounded-xl mb-5 border border-slate-800">
-            <button
-              type="button"
-              onClick={() => setIsLogin(true)}
-              className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all ${
-                isLogin ? "bg-cyan-600 text-white shadow-sm" : "text-slate-400 hover:text-white"
-              }`}
-            >
-              Email & Password Sign In
-            </button>
-            <button
-              type="button"
-              onClick={() => setIsLogin(false)}
-              className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all ${
-                !isLogin ? "bg-cyan-600 text-white shadow-sm" : "text-slate-400 hover:text-white"
-              }`}
-            >
-              Register New Account
-            </button>
-          </div>
-
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {!isLogin && (
-              <>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">Full Legal Name</label>
-                  <div className="relative">
-                    <UserIcon className="w-4 h-4 text-slate-500 absolute left-3 top-2.5" />
-                    <input
-                      type="text"
-                      placeholder="e.g. Eleanor Vance"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-9 pr-3 py-2 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-cyan-500"
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">Account Role</label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setRole("patient")}
-                      className={`p-2.5 rounded-xl border text-xs font-semibold flex items-center justify-center space-x-2 transition-all ${
-                        role === "patient"
-                          ? "bg-cyan-950/80 border-cyan-600 text-white"
-                          : "bg-slate-950 border-slate-800 text-slate-400"
-                      }`}
-                    >
-                      <Heart className="w-4 h-4 text-cyan-400" />
-                      <span>Patient</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setRole("doctor")}
-                      className={`p-2.5 rounded-xl border text-xs font-semibold flex items-center justify-center space-x-2 transition-all ${
-                        role === "doctor"
-                          ? "bg-purple-950/80 border-purple-600 text-white"
-                          : "bg-slate-950 border-slate-800 text-slate-400"
-                      }`}
-                    >
-                      <Stethoscope className="w-4 h-4 text-purple-400" />
-                      <span>Doctor / MD</span>
-                    </button>
-                  </div>
-                </div>
-
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="text-xs font-semibold text-slate-300">Ethereum Wallet ID</label>
-                    <button
-                      type="button"
-                      onClick={handleUseMetaMask}
-                      className="text-[10px] text-cyan-400 hover:text-cyan-300 font-mono underline transition-colors"
-                    >
-                      {activeMetaMaskAddress 
-                        ? `Use MetaMask (${activeMetaMaskAddress.slice(0, 6)}...${activeMetaMaskAddress.slice(-4)})`
-                        : "Connect & Use MetaMask"}
-                    </button>
-                  </div>
-                  <div className="relative">
-                    <Wallet className="w-4 h-4 text-slate-500 absolute left-3 top-2.5" />
-                    <input
-                      type="text"
-                      placeholder={activeMetaMaskAddress || "0x... (or leave empty to auto-assign)"}
-                      value={customWallet}
-                      onChange={(e) => setCustomWallet(e.target.value)}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-9 pr-3 py-2 text-xs text-white font-mono placeholder-slate-600 focus:outline-none focus:border-cyan-500"
-                    />
-                  </div>
-                </div>
-
-                <div className="flex items-start space-x-2 p-2.5 rounded-xl bg-slate-950 border border-slate-800/80">
-                  <input
-                    type="checkbox"
-                    id="verifySig"
-                    checked={verifyOnSignup}
-                    onChange={(e) => setVerifyOnSignup(e.target.checked)}
-                    className="mt-0.5 rounded border-slate-700 text-cyan-500 focus:ring-cyan-500 bg-slate-900"
-                  />
-                  <label htmlFor="verifySig" className="text-[11px] text-slate-300 select-none cursor-pointer leading-tight">
-                    <strong className="text-cyan-300 font-medium">Verify via MetaMask Signature post-registration:</strong>{" "}
-                    Prompts EIP-191 cryptographic proof immediately to confirm ownership and seal your profile credentials.
-                  </label>
-                </div>
-              </>
-            )}
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">Email Address</label>
-              <div className="relative">
-                <Mail className="w-4 h-4 text-slate-500 absolute left-3 top-2.5" />
-                <input
-                  type="email"
-                  placeholder="name@domain.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-9 pr-3 py-2 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-cyan-500"
-                  required
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">Password</label>
-              <div className="relative">
-                <Lock className="w-4 h-4 text-slate-500 absolute left-3 top-2.5" />
-                <input
-                  type="password"
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-9 pr-3 py-2 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-cyan-500"
-                  required
-                />
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-2.5 rounded-xl bg-gradient-to-r from-cyan-600 to-teal-600 hover:from-cyan-500 hover:to-teal-500 text-white font-bold text-xs shadow-lg shadow-cyan-600/25 transition-all flex items-center justify-center space-x-2 disabled:opacity-50"
-            >
-              {loading ? (
-                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              ) : (
-                <>
-                  <span>{isLogin ? "Authenticate Credentials" : "Create Account & Web3 ID"}</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </>
-              )}
-            </button>
-          </form>
         </div>
 
         {/* Security Disclaimers */}
         <div className="text-center text-[11px] text-slate-500 flex items-center justify-center space-x-2">
           <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-          <span>EIP-191 Personal Sign • EVM Smart Contracts • IPFS Off-chain</span>
+          <span>EIP-191 Personal Sign • 1:1 Wallet Identity • IPFS Off-chain</span>
         </div>
       </div>
     </div>

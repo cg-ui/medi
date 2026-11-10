@@ -42,13 +42,13 @@ if (MONGODB_URI) {
   console.log("MONGODB_URI not found. Running in DEMO MODE with in-memory auth fallback.");
 }
 
-// User Schema
+// User Schema (Email optional — MetaMask walletAddress is primary Web3 identity)
 const userSchema = new mongoose.Schema({
-  email: { type: String, required: true, unique: true },
-  password: { type: String, required: true },
+  email: { type: String, sparse: true, unique: true },
+  password: { type: String },
   role: { type: String, enum: ["patient", "doctor"], required: true },
   name: { type: String },
-  walletAddress: { type: String },
+  walletAddress: { type: String, sparse: true, unique: true },
 });
 
 const User = mongoose.model("User", userSchema);
@@ -384,14 +384,32 @@ app.post("/api/auth/update-wallet", async (req, res) => {
     }
 
     if (!user) {
-      // In demo mode, if neither was found, update the demo patient
-      const defaultUser = mockUsers[0];
-      if (defaultUser) {
-        defaultUser.walletAddress = cleanAddress;
-        user = defaultUser;
+      return res.status(404).json({ error: "User session not found to update wallet" });
+    }
+
+    // Prevent linking one MetaMask wallet to multiple different user accounts
+    if (cleanAddress) {
+      let existingOwner: any;
+      if (isDbConnected) {
+        existingOwner = await User.findOne({
+          walletAddress: new RegExp(`^${cleanAddress}$`, "i"),
+          _id: { $ne: user._id }
+        });
       } else {
-        return res.status(404).json({ error: "User session not found to update wallet" });
+        existingOwner = mockUsers.find(
+          u => u._id !== user._id && u.walletAddress && u.walletAddress.toLowerCase() === cleanAddress.toLowerCase()
+        );
       }
+      if (existingOwner) {
+        return res.status(409).json({
+          error: `This MetaMask account is already linked to ${existingOwner.name || "another user"}. Switch accounts in MetaMask to bind a unique wallet.`
+        });
+      }
+    }
+
+    user.walletAddress = cleanAddress;
+    if (isDbConnected) {
+      await User.findByIdAndUpdate(user._id, { walletAddress: cleanAddress });
     }
 
     // Refresh token with new wallet address
@@ -498,10 +516,10 @@ app.post("/api/auth/nonce", (req, res) => {
   }
 });
 
-// 2. Authenticate / Login via MetaMask Signature
-app.post("/api/auth/metamask-login", async (req, res) => {
+// 2A. Register / Sign Up via MetaMask Signature ONLY (No Email Required)
+app.post("/api/auth/metamask-signup", async (req, res) => {
   try {
-    const { walletAddress, signature, message, email } = req.body;
+    const { walletAddress, signature, message, name, role } = req.body;
 
     if (!walletAddress || !signature || !message) {
       return res.status(400).json({ error: "walletAddress, signature, and message are required" });
@@ -521,55 +539,115 @@ app.post("/api/auth/metamask-login", async (req, res) => {
       });
     }
 
-    // Find or link account
-    let user: any;
+    // Enforce 1-to-1 unique MetaMask wallet per person
+    let existingUser: any;
     if (isDbConnected) {
-      if (email) {
-        user = await User.findOne({ email: email.toLowerCase() });
-      } else {
-        user = await User.findOne({ walletAddress: new RegExp(`^${walletAddress}$`, "i") });
-      }
+      existingUser = await User.findOne({ walletAddress: new RegExp(`^${recoveredAddress}$`, "i") });
     } else {
-      if (email) {
-        user = mockUsers.find(u => u.email.toLowerCase() === email.toLowerCase());
-      } else {
-        user = mockUsers.find(u => u.walletAddress && u.walletAddress.toLowerCase() === walletAddress.toLowerCase());
-      }
+      existingUser = mockUsers.find(
+        u => u.walletAddress && u.walletAddress.toLowerCase() === recoveredAddress.toLowerCase()
+      );
     }
 
-    if (!user) {
-      // Auto-provision patient account with verified MetaMask address
-      const newUserId = "wallet-" + Date.now();
-      const autoEmail = email || `user_${walletAddress.slice(2, 8).toLowerCase()}@medichain.io`;
-      const newUser = {
-        _id: newUserId,
-        email: autoEmail,
-        role: "patient",
-        name: `Patient (${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)})`,
-        walletAddress,
+    if (existingUser) {
+      return res.status(409).json({
+        error: `MetaMask wallet ${recoveredAddress.slice(0, 6)}...${recoveredAddress.slice(-4)} is already registered to "${existingUser.name}". Please Sign In instead or switch to a different MetaMask account.`
+      });
+    }
+
+    const cleanRole = role === "doctor" ? "doctor" : "patient";
+    const cleanName = (name || "").trim() || `${cleanRole === "doctor" ? "Dr." : "Patient"} (${recoveredAddress.slice(0, 6)}...${recoveredAddress.slice(-4)})`;
+    const internalEmail = `wallet_${recoveredAddress.slice(2, 10).toLowerCase()}@medichain.wallet`;
+
+    let user: any;
+    if (isDbConnected) {
+      const dbUser = new User({
+        email: internalEmail,
+        role: cleanRole,
+        name: cleanName,
+        walletAddress: recoveredAddress,
+        password: hashSync(crypto.randomBytes(16).toString("hex"))
+      });
+      await dbUser.save();
+      user = dbUser;
+    } else {
+      user = {
+        _id: "wallet-" + Date.now() + "-" + Math.floor(Math.random() * 1000),
+        email: internalEmail,
+        role: cleanRole,
+        name: cleanName,
+        walletAddress: recoveredAddress,
         password: hashSync(crypto.randomBytes(16).toString("hex"))
       };
-
-      if (isDbConnected) {
-        const dbUser = new User(newUser);
-        await dbUser.save();
-        user = dbUser;
-      } else {
-        mockUsers.push(newUser);
-        user = newUser;
-      }
-    } else {
-      // If user had empty wallet address or needed linking, update with verified signature address
-      if (!user.walletAddress || user.walletAddress.toLowerCase() !== walletAddress.toLowerCase()) {
-        user.walletAddress = walletAddress;
-        if (isDbConnected) {
-          await User.findByIdAndUpdate(user._id, { walletAddress });
-        }
-      }
+      mockUsers.push(user);
     }
 
     const token = jwt.sign(
-      { userId: user._id.toString(), role: user.role, walletAddress },
+      { userId: user._id.toString(), role: user.role, walletAddress: recoveredAddress },
+      JWT_SECRET,
+      { expiresIn: "1d" }
+    );
+
+    res.cookie("token", token, { httpOnly: true, secure: true, sameSite: "none", maxAge: 86400000 });
+    res.status(201).json({
+      token,
+      user: {
+        _id: user._id.toString(),
+        email: user.email,
+        role: user.role,
+        name: user.name,
+        walletAddress: user.walletAddress
+      },
+      isDemo: !isDbConnected,
+      signatureVerified: true,
+      recoveredAddress
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || "MetaMask signup failed" });
+  }
+});
+
+// 2B. Authenticate / Login via MetaMask Signature ONLY (Strict Wallet Lookup)
+app.post("/api/auth/metamask-login", async (req, res) => {
+  try {
+    const { walletAddress, signature, message } = req.body;
+
+    if (!walletAddress || !signature || !message) {
+      return res.status(400).json({ error: "walletAddress, signature, and message are required" });
+    }
+
+    // Cryptographically recover signer address
+    let recoveredAddress: string;
+    try {
+      recoveredAddress = ethers.verifyMessage(message, signature);
+    } catch (sigErr: any) {
+      return res.status(401).json({ error: `Cryptographic signature invalid: ${sigErr.message}` });
+    }
+
+    if (recoveredAddress.toLowerCase() !== walletAddress.toLowerCase()) {
+      return res.status(401).json({
+        error: `Signature mismatch. Recovered ${recoveredAddress} does not match claimed address ${walletAddress}`
+      });
+    }
+
+    // Look up user STRICTLY by recovered MetaMask walletAddress
+    let user: any;
+    if (isDbConnected) {
+      user = await User.findOne({ walletAddress: new RegExp(`^${recoveredAddress}$`, "i") });
+    } else {
+      user = mockUsers.find(
+        u => u.walletAddress && u.walletAddress.toLowerCase() === recoveredAddress.toLowerCase()
+      );
+    }
+
+    if (!user) {
+      return res.status(404).json({
+        error: `No MediChain account found for MetaMask wallet ${recoveredAddress.slice(0, 6)}...${recoveredAddress.slice(-4)}. Please switch to "Create Account" to register this wallet.`
+      });
+    }
+
+    const token = jwt.sign(
+      { userId: user._id.toString(), role: user.role, walletAddress: user.walletAddress },
       JWT_SECRET,
       { expiresIn: "1d" }
     );
