@@ -1,0 +1,5 @@
+{
+  "name": "MediChain",
+  "description": "Blockchain-secured clinical dashboard for real-time biometric monitoring and medical record management.",
+  "requestFramePermissions": []
+}
