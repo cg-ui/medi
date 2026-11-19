@@ -1,20 +1,17 @@
 import React, { useState } from "react";
-import { 
-  Wallet, 
-  CheckCircle2, 
-  Copy, 
-  Flame, 
-  Play, 
-  Pause, 
-  ShieldAlert,
+import {
+  Wallet,
+  CheckCircle2,
+  Copy,
+  Play,
+  Pause,
   ShieldCheck,
   AlertTriangle,
   RefreshCw,
   KeyRound,
-  FileText,
   Coins,
   Bell,
-  ExternalLink
+  ExternalLink,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { useVitals, SimulationScenario } from "../../context/VitalsContext";
@@ -29,19 +26,19 @@ interface TopBarProps {
 }
 
 export const TopBar: React.FC<TopBarProps> = ({ title, subtitle }) => {
-  const { 
-    walletAddress, 
-    activeMetaMaskAddress, 
-    isWalletMismatched, 
+  const {
+    walletAddress,
+    activeMetaMaskAddress,
+    isWalletMismatched,
     isSignatureVerified,
     isMetaMaskAvailable,
-    connectWallet, 
+    connectWallet,
     loginWithMetaMaskSignature,
     verifyActiveMetaMaskAgainstCredentials,
     rebindCurrentMetaMaskAddress,
     syncActiveWalletToProfile,
     dismissMismatchWarning,
-    user 
+    user,
   } = useAuth();
 
   const { isStreaming, toggleStreaming, scenario, setScenario } = useVitals();
@@ -119,19 +116,23 @@ export const TopBar: React.FC<TopBarProps> = ({ title, subtitle }) => {
 
   return (
     <div className="sticky top-0 z-20 flex flex-col">
-      {/* Critical Warning Banner if Active MetaMask does not match logged-in account */}
+      {/* Warning Banner if Active MetaMask does not match logged-in account */}
       {isWalletMismatched && (
-        <div className="bg-amber-950/90 border-b border-amber-600/80 px-6 py-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs backdrop-blur-md transition-all">
+        <div className="bg-amber-950/90 border-b border-amber-700/80 px-6 py-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
           <div className="flex items-center space-x-2 text-amber-200">
-            <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 animate-bounce" />
+            <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
             <span>
-              <strong>MetaMask Account Mismatch Detected:</strong> Connected{" "}
-              <span className="font-mono font-bold text-amber-300">
-                {activeMetaMaskAddress ? `${activeMetaMaskAddress.slice(0, 6)}...${activeMetaMaskAddress.slice(-4)}` : "None"}
+              <strong>Wallet Mismatch:</strong> Connected{" "}
+              <span className="font-mono font-semibold text-amber-300">
+                {activeMetaMaskAddress
+                  ? `${activeMetaMaskAddress.slice(0, 6)}...${activeMetaMaskAddress.slice(-4)}`
+                  : "None"}
               </span>{" "}
-              does not match registered account{" "}
-              <span className="font-mono font-bold text-white">
-                {walletAddress ? `${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}` : "None"}
+              vs account{" "}
+              <span className="font-mono font-semibold text-white">
+                {walletAddress
+                  ? `${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}`
+                  : "None"}
               </span>
             </span>
           </div>
@@ -139,87 +140,82 @@ export const TopBar: React.FC<TopBarProps> = ({ title, subtitle }) => {
             <button
               onClick={handleSyncWallet}
               disabled={isSyncing}
-              className="px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[11px] shadow-sm transition-colors flex items-center space-x-1"
+              className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-[11px] flex items-center space-x-1"
             >
-              {isSyncing ? <RefreshCw className="w-3 h-3 animate-spin mr-1" /> : null}
-              <span>Sync This Wallet</span>
+              {isSyncing && <RefreshCw className="w-3 h-3 animate-spin mr-1" />}
+              <span>Sync Wallet</span>
             </button>
             <button
               onClick={() => rebindCurrentMetaMaskAddress()}
-              className="px-2.5 py-1 rounded-lg bg-amber-600 hover:bg-amber-500 text-slate-950 font-bold text-[11px] shadow-sm transition-colors"
+              className="px-2.5 py-1 rounded-lg bg-amber-600 hover:bg-amber-500 text-slate-950 font-semibold text-[11px]"
             >
-              Sign & Bind
+              Sign &amp; Bind
             </button>
             <button
               onClick={() => verifyActiveMetaMaskAgainstCredentials()}
-              className="px-2.5 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-amber-300 border border-amber-800 text-[11px] font-semibold transition-colors"
+              className="px-2.5 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-amber-300 border border-amber-800 text-[11px]"
             >
-              Check Again
+              Recheck
             </button>
             <button
               onClick={dismissMismatchWarning}
-              className="p-1 text-amber-400/80 hover:text-amber-200 rounded-lg hover:bg-amber-900/40 transition-colors"
+              className="p-1 text-amber-300 hover:text-white"
               title="Dismiss warning"
             >
-              <span className="text-xs font-bold px-1">✕</span>
+              ✕
             </button>
           </div>
         </div>
       )}
 
-      <header className="h-16 border-b border-slate-800 bg-slate-900/60 px-6 flex items-center justify-between backdrop-blur-md">
+      <header className="h-14 border-b border-slate-800 bg-slate-900 px-6 flex items-center justify-between">
         <div>
-          <h1 className="text-lg font-bold text-white tracking-tight flex items-center gap-2">
-            {title}
-          </h1>
-          <p className="text-xs text-slate-400 font-medium">{subtitle}</p>
+          <h1 className="text-base font-bold text-white leading-tight">{title}</h1>
+          <p className="text-[11px] text-slate-400">{subtitle}</p>
         </div>
 
-        <div className="flex items-center space-x-3">
+        <div className="flex items-center space-x-2">
           {/* Simulation Scenario Selector */}
-          <div className="hidden lg:flex items-center space-x-1.5 bg-slate-950/80 p-1 rounded-xl border border-slate-800 text-xs">
-            <span className="text-[11px] text-slate-400 px-2 font-medium flex items-center gap-1">
-              <Flame className="w-3.5 h-3.5 text-amber-400" />
-              Sim Scenario:
-            </span>
-            {(["normal", "tachycardia", "hypoxia", "hypertension"] as SimulationScenario[]).map((sc) => (
-              <button
-                key={sc}
-                onClick={() => {
-                  setScenario(sc);
-                  toast.info(`Switched biometric simulation to: ${sc.toUpperCase()}`);
-                }}
-                className={`px-2.5 py-1 rounded-lg capitalize font-medium transition-all ${
-                  scenario === sc
-                    ? "bg-cyan-600 text-white shadow-sm"
-                    : "text-slate-400 hover:text-slate-200 hover:bg-slate-800"
-                }`}
-              >
-                {sc}
-              </button>
-            ))}
+          <div className="hidden xl:flex items-center space-x-1 bg-slate-950 p-1 rounded-lg border border-slate-800 text-xs">
+            {(["normal", "tachycardia", "hypoxia", "hypertension"] as SimulationScenario[]).map(
+              (sc) => (
+                <button
+                  key={sc}
+                  onClick={() => {
+                    setScenario(sc);
+                    toast.info(`Switched biometric simulation to: ${sc.toUpperCase()}`);
+                  }}
+                  className={`px-2 py-1 rounded capitalize text-[11px] font-medium transition-colors ${
+                    scenario === sc
+                      ? "bg-cyan-600 text-white"
+                      : "text-slate-400 hover:text-slate-200"
+                  }`}
+                >
+                  {sc}
+                </button>
+              )
+            )}
           </div>
 
           {/* Streaming Toggle */}
           <button
             onClick={toggleStreaming}
-            title={isStreaming ? "Pause real-time stream" : "Resume stream"}
-            className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all ${
+            title={isStreaming ? "Pause stream" : "Resume stream"}
+            className={`flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
               isStreaming
-                ? "bg-emerald-950/60 border-emerald-800/80 text-emerald-400 hover:bg-emerald-900/60"
+                ? "bg-slate-950 border-emerald-800 text-emerald-400 hover:bg-slate-800"
                 : "bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700"
             }`}
           >
             {isStreaming ? (
               <>
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                <span>Telemetry Active</span>
-                <Pause className="w-3.5 h-3.5 ml-1" />
+                <Pause className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Live</span>
               </>
             ) : (
               <>
-                <Play className="w-3.5 h-3.5 mr-1" />
-                <span>Resume Stream</span>
+                <Play className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Paused</span>
               </>
             )}
           </button>
@@ -228,44 +224,49 @@ export const TopBar: React.FC<TopBarProps> = ({ title, subtitle }) => {
           <button
             onClick={handleVerifySignature}
             disabled={isVerifying}
-            className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all ${
+            className={`flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
               isSignatureVerified
-                ? "bg-emerald-950/80 border-emerald-700 text-emerald-300 shadow-sm shadow-emerald-950"
-                : "bg-cyan-950/80 border-cyan-700 hover:bg-cyan-900 text-cyan-200"
+                ? "bg-slate-950 border-emerald-800 text-emerald-300"
+                : "bg-slate-950 border-slate-700 hover:border-cyan-600 text-slate-200"
             }`}
             title="Click to sign challenge with MetaMask"
           >
             {isVerifying ? (
               <>
                 <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                <span>Verifying Sig...</span>
+                <span>Signing...</span>
               </>
             ) : isSignatureVerified ? (
               <>
                 <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                <span>Sig Verified</span>
+                <span className="hidden sm:inline">Verified</span>
               </>
             ) : (
               <>
                 <KeyRound className="w-3.5 h-3.5 text-cyan-400" />
-                <span>Verify Signature</span>
+                <span className="hidden sm:inline">Verify Sig</span>
               </>
             )}
           </button>
 
           {/* Connected Wallet Badge */}
-          <div className="flex items-center space-x-1 bg-slate-950 border border-slate-800/90 rounded-xl px-3 py-1.5 text-xs">
-            <div className={`w-2 h-2 rounded-full ${isWalletMismatched ? "bg-amber-400 animate-pulse" : "bg-cyan-400"}`} />
-            <Wallet className="w-3.5 h-3.5 text-cyan-400 ml-1" />
-            <span className="font-mono text-slate-200 font-medium">
-              {walletAddress ? `${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}` : "Connect Wallet"}
+          <div className="flex items-center space-x-1.5 bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs">
+            <Wallet className="w-3.5 h-3.5 text-cyan-400" />
+            <span className="font-mono text-slate-200">
+              {walletAddress
+                ? `${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}`
+                : "Connect"}
             </span>
             <button
               onClick={copyWallet}
-              className="p-1 hover:text-cyan-400 text-slate-400 rounded transition-colors"
+              className="text-slate-400 hover:text-cyan-400"
               title="Copy Address"
             >
-              {copied ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+              {copied ? (
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+              ) : (
+                <Copy className="w-3.5 h-3.5" />
+              )}
             </button>
           </div>
 
@@ -274,7 +275,7 @@ export const TopBar: React.FC<TopBarProps> = ({ title, subtitle }) => {
             <div className="relative">
               <button
                 onClick={() => setIsNotifOpen((prev) => !prev)}
-                className="relative p-2 rounded-xl bg-slate-950 border border-slate-800 hover:border-cyan-700 text-slate-300 hover:text-white transition-colors"
+                className="relative p-1.5 rounded-lg bg-slate-950 border border-slate-800 hover:border-slate-700 text-slate-300 hover:text-white transition-colors"
                 title="Doctor Access Notifications"
               >
                 <Bell className="w-4 h-4" />
@@ -286,7 +287,7 @@ export const TopBar: React.FC<TopBarProps> = ({ title, subtitle }) => {
               </button>
 
               {isNotifOpen && (
-                <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl z-50 overflow-hidden">
+                <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-slate-900 border border-slate-800 rounded-xl shadow-xl z-50 overflow-hidden">
                   <div className="p-3 border-b border-slate-800 flex items-center justify-between">
                     <span className="text-xs font-bold text-white">
                       Doctor Access Alerts ({notifications.length})
@@ -314,7 +315,7 @@ export const TopBar: React.FC<TopBarProps> = ({ title, subtitle }) => {
                           }`}
                         >
                           <div className="flex items-center justify-between gap-2">
-                            <span className="font-bold text-white">{n.doctorName}</span>
+                            <span className="font-semibold text-white">{n.doctorName}</span>
                             <span className="text-[10px] text-slate-500">
                               {new Date(n.timestamp).toLocaleTimeString()}
                             </span>
@@ -344,24 +345,23 @@ export const TopBar: React.FC<TopBarProps> = ({ title, subtitle }) => {
           {/* Sepolia Faucet ETH Hub */}
           <button
             onClick={() => setIsFaucetModalOpen(true)}
-            className="hidden md:inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-amber-950/70 hover:bg-amber-900/80 border border-amber-700/80 text-amber-300 text-xs font-semibold shadow-sm transition-all"
+            className="hidden md:inline-flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg bg-slate-950 hover:bg-slate-800 border border-slate-800 text-amber-300 text-xs font-medium transition-colors"
             title="Claim free Sepolia testnet ETH for gas fees"
           >
             <Coins className="w-3.5 h-3.5 text-amber-400" />
-            <span>Sepolia Faucet</span>
+            <span>Faucet</span>
           </button>
 
           {/* Web3 / MetaMask Action Button */}
           <button
             onClick={connectWallet}
-            className="hidden sm:inline-flex items-center px-3 py-1.5 rounded-xl bg-gradient-to-r from-cyan-600 to-teal-600 hover:from-cyan-500 hover:to-teal-500 text-white text-xs font-semibold shadow-md shadow-cyan-600/20 transition-all"
+            className="hidden sm:inline-flex items-center px-3 py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-medium transition-colors"
           >
-            {isMetaMaskAvailable ? "MetaMask Key" : "Web3 Key"}
+            {isMetaMaskAvailable ? "MetaMask" : "Wallet"}
           </button>
         </div>
       </header>
 
-      {/* Sepolia Faucet Hub Modal */}
       <SepoliaFaucetModal
         isOpen={isFaucetModalOpen}
         onClose={() => setIsFaucetModalOpen(false)}

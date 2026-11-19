@@ -1,33 +1,24 @@
 import React, { useState, useEffect } from "react";
-import { 
-  FileText, 
-  UploadCloud, 
-  ShieldCheck, 
-  ExternalLink, 
-  Hash, 
-  Search, 
-  Filter, 
-  CheckCircle2, 
-  X, 
-  Clock, 
-  Lock, 
-  Eye, 
-  Dna, 
-  HeartPulse, 
-  FlaskConical, 
-  Scan, 
+import {
+  FileText,
+  UploadCloud,
+  ShieldCheck,
+  ExternalLink,
+  Hash,
+  Search,
+  X,
+  Eye,
+  Dna,
+  HeartPulse,
+  FlaskConical,
+  Scan,
   Pill,
   Download,
-  FileCode,
   Paperclip,
   Check,
-  FileSpreadsheet,
-  AlertCircle,
   Copy,
   KeyRound,
-  ShieldAlert,
-  ArrowRight,
-  Coins
+  Coins,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { blockchainService } from "../../services/blockchainService";
@@ -38,7 +29,7 @@ import { MedicalRecord } from "../../types";
 import { toast } from "sonner";
 
 export const Reports: React.FC = () => {
-  const { walletAddress, activeMetaMaskAddress, isMetaMaskAvailable, user } = useAuth();
+  const { walletAddress, activeMetaMaskAddress, user } = useAuth();
   const [records, setRecords] = useState<MedicalRecord[]>([]);
   const [selectedRecord, setSelectedRecord] = useState<MedicalRecord | null>(null);
   const [receiptRecord, setReceiptRecord] = useState<MedicalRecord | null>(null);
@@ -46,15 +37,15 @@ export const Reports: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterType, setFilterType] = useState<string>("all");
 
-  // Form states for adding new record / word doc
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [fileBase64, setFileBase64] = useState<string>("");
   const [title, setTitle] = useState("");
   const [recordType, setRecordType] = useState<MedicalRecord["recordType"]>("Cardiology Report");
   const [notes, setNotes] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [uploadStep, setUploadStep] = useState<"idle" | "hashing" | "waiting_signature" | "uploading_ipfs" | "anchoring_eth">("idle");
-  const [copiedHash, setCopiedHash] = useState<string | null>(null);
+  const [uploadStep, setUploadStep] = useState<
+    "idle" | "hashing" | "waiting_signature" | "uploading_ipfs" | "anchoring_eth"
+  >("idle");
   const [verificationInput, setVerificationInput] = useState("");
   const [verificationResult, setVerificationResult] = useState<boolean | null>(null);
   const [useSepoliaGas, setUseSepoliaGas] = useState<boolean>(false);
@@ -65,16 +56,16 @@ export const Reports: React.FC = () => {
   }, [walletAddress]);
 
   const loadRecords = async () => {
-    const list = await blockchainService.getRecords(walletAddress || "0x71C6615b18B1143c7B6528766fC2A9f69744982a");
+    const list = await blockchainService.getRecords(
+      walletAddress || "0x71C6615b18B1143c7B6528766fC2A9f69744982a"
+    );
     setRecords(list);
   };
 
   const copyToClipboard = (text: string, label: string) => {
     if (!text) return;
     navigator.clipboard.writeText(text);
-    setCopiedHash(label);
     toast.success(`Copied ${label} to clipboard`);
-    setTimeout(() => setCopiedHash(null), 2500);
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -112,10 +103,10 @@ DIAGNOSTIC FINDINGS:
 SEALED VIA ETHEREUM SMART CONTRACT & DECENTRALIZED IPFS PINNING.`;
 
     const blob = new Blob([sampleText], {
-      type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+      type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     });
     const file = new File([blob], "Ambulatory_Cardiology_Telemetry_Report.docx", {
-      type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+      type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     });
 
     setSelectedFile(file);
@@ -133,9 +124,6 @@ SEALED VIA ETHEREUM SMART CONTRACT & DECENTRALIZED IPFS PINNING.`;
     toast.info("Created sample Word Document (.docx) ready to sign with MetaMask!");
   };
 
-  /**
-   * Primary Report Upload Flow with Mandatory MetaMask Signature Approval & IPFS Storage
-   */
   const handleUpload = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) {
@@ -147,14 +135,17 @@ SEALED VIA ETHEREUM SMART CONTRACT & DECENTRALIZED IPFS PINNING.`;
     setUploadStep("hashing");
 
     try {
-      // 1. Prepare file payload or metadata
-      let currentFileName = selectedFile?.name || `${title.replace(/[^a-zA-Z0-9_-]/g, "_")}.docx`;
+      const currentFileName =
+        selectedFile?.name || `${title.replace(/[^a-zA-Z0-9_-]/g, "_")}.docx`;
       let currentBase64 = fileBase64;
-      let isWordDoc = currentFileName.endsWith(".docx") || currentFileName.endsWith(".doc");
-      let currentMime = selectedFile?.type || (isWordDoc ? "application/vnd.openxmlformats-officedocument.wordprocessingml.document" : "application/octet-stream");
+      const isWordDoc = currentFileName.endsWith(".docx") || currentFileName.endsWith(".doc");
+      const currentMime =
+        selectedFile?.type ||
+        (isWordDoc
+          ? "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+          : "application/octet-stream");
 
       if (!currentBase64) {
-        // Fallback default clinical note report
         const defaultReport = `MEDICHAIN BIO - CLINICAL REPORT
 Title: ${title}
 Record Type: ${recordType}
@@ -166,34 +157,39 @@ Cryptographically signed via MetaMask & Anchored to Ethereum Sepolia.`;
         currentBase64 = btoa(unescape(encodeURIComponent(defaultReport)));
       }
 
-      // 2. Pre-calculate authentic SHA-256 Checksum, IPFS CIDv1 (bafkrei...), and CIDv0 (Qm...)
       const binaryString = window.atob(currentBase64);
       const len = binaryString.length;
       const bytes = new Uint8Array(len);
       for (let i = 0; i < len; i++) {
         bytes[i] = binaryString.charCodeAt(i);
       }
-      const { cidV1: calculatedIpfsHash, cidV0: calculatedCidV0, checksum: calculatedChecksum } =
-        await ipfsService.computeFileCids(bytes.buffer);
+      const {
+        cidV1: calculatedIpfsHash,
+        cidV0: calculatedCidV0,
+        checksum: calculatedChecksum,
+      } = await ipfsService.computeFileCids(bytes.buffer);
 
-      const uploader = activeMetaMaskAddress || walletAddress || user?.walletAddress || "0x71C6615b18B1143c7B6528766fC2A9f69744982a";
+      const uploader =
+        activeMetaMaskAddress ||
+        walletAddress ||
+        user?.walletAddress ||
+        "0x71C6615b18B1143c7B6528766fC2A9f69744982a";
       const patient = walletAddress || "0x71C6615b18B1143c7B6528766fC2A9f69744982a";
 
-      // 3. Request Cryptographic Signature Approval from MetaMask
       setUploadStep("waiting_signature");
       toast.info("Step 1/3: Requesting MetaMask signature approval for report upload...");
 
-      const { signature, signerAddress, approvalMessage } = await blockchainService.signReportApprovalWithMetaMask({
-        title,
-        fileName: currentFileName,
-        patientAddress: patient,
-        recordType,
-        checksum: calculatedChecksum,
-        ipfsHash: calculatedIpfsHash,
-        uploaderAddress: uploader,
-      });
+      const { signature, signerAddress, approvalMessage } =
+        await blockchainService.signReportApprovalWithMetaMask({
+          title,
+          fileName: currentFileName,
+          patientAddress: patient,
+          recordType,
+          checksum: calculatedChecksum,
+          ipfsHash: calculatedIpfsHash,
+          uploaderAddress: uploader,
+        });
 
-      // 4. Send Payload + Cryptographic Signature to Backend for Verification & IPFS Pinning
       setUploadStep("uploading_ipfs");
       toast.info("Step 2/3: Signature approved! Uploading and pinning document to IPFS...");
 
@@ -211,7 +207,6 @@ Cryptographically signed via MetaMask & Anchored to Ethereum Sepolia.`;
         signatureMessage: approvalMessage,
       });
 
-      // 5. Anchor Cryptographic Digest, IPFS CID, and MetaMask Signature to Smart Contract Ledger
       setUploadStep("anchoring_eth");
       toast.info("Step 3/3: Anchoring cryptographic digest to Ethereum ledger...");
 
@@ -230,7 +225,9 @@ Cryptographically signed via MetaMask & Anchored to Ethereum Sepolia.`;
         checksum: docRes.checksum,
         uploader: signerAddress,
         fileSize: docRes.fileSize,
-        notes: notes || `Cryptographically approved by ${signerAddress.slice(0, 6)}...${signerAddress.slice(-4)}.`,
+        notes:
+          notes ||
+          `Cryptographically approved by ${signerAddress.slice(0, 6)}...${signerAddress.slice(-4)}.`,
         moduleCategory,
         fileName: currentFileName,
         isWordDoc,
@@ -243,13 +240,15 @@ Cryptographically signed via MetaMask & Anchored to Ethereum Sepolia.`;
         useSepoliaGas,
       });
 
-      toast.success(`Report verified with MetaMask and anchored to IPFS & Ethereum Block #${newRec.blockNumber}!`);
+      toast.success(
+        `Report verified with MetaMask and anchored to IPFS & Ethereum Block #${newRec.blockNumber}!`
+      );
       setIsUploadOpen(false);
       setTitle("");
       setNotes("");
       setSelectedFile(null);
       setFileBase64("");
-      setReceiptRecord(newRec); // Open cryptographic receipt showing all 4 hashes!
+      setReceiptRecord(newRec);
       loadRecords();
     } catch (err: any) {
       toast.error(err.message || "Failed to complete report upload & signature approval");
@@ -273,47 +272,45 @@ Cryptographically signed via MetaMask & Anchored to Ethereum Sepolia.`;
     }
   };
 
-  const filteredRecords = records.filter(r => {
-    const matchesSearch = r.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                          r.ipfsHash.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          (r.checksum && r.checksum.toLowerCase().includes(searchTerm.toLowerCase())) ||
-                          (r.signature && r.signature.toLowerCase().includes(searchTerm.toLowerCase())) ||
-                          (r.fileName && r.fileName.toLowerCase().includes(searchTerm.toLowerCase()));
-    const matchesFilter = filterType === "all" || 
-                          (filterType === "wordDocs" ? r.isWordDoc : r.recordType === filterType);
+  const filteredRecords = records.filter((r) => {
+    const matchesSearch =
+      r.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      r.ipfsHash.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (r.checksum && r.checksum.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (r.signature && r.signature.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (r.fileName && r.fileName.toLowerCase().includes(searchTerm.toLowerCase()));
+    const matchesFilter =
+      filterType === "all" ||
+      (filterType === "wordDocs" ? r.isWordDoc : r.recordType === filterType);
     return matchesSearch && matchesFilter;
   });
 
   const getRecordIcon = (type: MedicalRecord["recordType"], isWordDoc?: boolean) => {
-    if (isWordDoc) {
-      return (
-        <div className="relative">
-          <FileText className="w-5 h-5 text-blue-400" />
-          <span className="absolute -bottom-1 -right-1 text-[8px] font-bold bg-blue-600 text-white px-1 rounded">W</span>
-        </div>
-      );
-    }
+    if (isWordDoc) return <FileText className="w-4 h-4 text-blue-400" />;
     switch (type) {
-      case "Cardiology Report": return <HeartPulse className="w-5 h-5 text-rose-400" />;
-      case "Genomic Sequencing": return <Dna className="w-5 h-5 text-purple-400" />;
-      case "Laboratory Panel": return <FlaskConical className="w-5 h-5 text-cyan-400" />;
-      case "MRI / Imaging": return <Scan className="w-5 h-5 text-teal-400" />;
-      case "Prescription": return <Pill className="w-5 h-5 text-amber-400" />;
-      default: return <FileText className="w-5 h-5 text-slate-400" />;
+      case "Cardiology Report":
+        return <HeartPulse className="w-4 h-4 text-rose-400" />;
+      case "Genomic Sequencing":
+        return <Dna className="w-4 h-4 text-purple-400" />;
+      case "Laboratory Panel":
+        return <FlaskConical className="w-4 h-4 text-cyan-400" />;
+      case "MRI / Imaging":
+        return <Scan className="w-4 h-4 text-teal-400" />;
+      case "Prescription":
+        return <Pill className="w-4 h-4 text-amber-400" />;
+      default:
+        return <FileText className="w-4 h-4 text-slate-400" />;
     }
   };
 
   return (
-    <div className="space-y-6">
-      {/* Top Banner with Controls */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-900/80 border border-slate-800 rounded-2xl p-5 shadow-lg">
+    <div className="space-y-5">
+      {/* Header Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-900 border border-slate-800 rounded-xl p-5">
         <div>
-          <h2 className="text-base font-bold text-white flex items-center gap-2">
-            <Lock className="w-4 h-4 text-cyan-400" />
-            MetaMask-Signed Medical Reports & IPFS Decentralized Ledger
-          </h2>
+          <h2 className="text-sm font-bold text-white">Medical Reports &amp; IPFS Ledger</h2>
           <p className="text-xs text-slate-400">
-            Every clinical report requires MetaMask cryptographic signature approval, pins to IPFS, and commits SHA-256 digests to Ethereum.
+            Upload reports with MetaMask signature approval, IPFS pinning, and Sepolia anchoring.
           </p>
         </div>
 
@@ -323,42 +320,41 @@ Cryptographically signed via MetaMask & Anchored to Ethereum Sepolia.`;
             setSelectedFile(null);
             setFileBase64("");
           }}
-          className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 via-cyan-600 to-teal-600 hover:from-blue-500 hover:to-teal-500 text-white font-semibold text-xs shadow-lg shadow-cyan-600/20 flex items-center space-x-2 transition-all self-start sm:self-auto"
+          className="px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-medium text-xs flex items-center space-x-2 transition-colors self-start sm:self-auto"
         >
           <UploadCloud className="w-4 h-4" />
-          <span>Upload & Sign with MetaMask</span>
+          <span>Upload Report</span>
         </button>
       </div>
 
-      {/* Filter and Search Bar */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-slate-900/60 p-3 rounded-2xl border border-slate-800">
+      {/* Filter & Search */}
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-slate-900 p-3 rounded-xl border border-slate-800">
         <div className="relative w-full sm:w-80">
-          <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
+          <Search className="w-4 h-4 absolute left-3 top-2 text-slate-400" />
           <input
             type="text"
-            placeholder="Search title, IPFS CID, SHA-256, or signature..."
+            placeholder="Search title, IPFS CID, SHA-256..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-9 pr-3 py-1.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 font-mono"
+            className="w-full pl-9 pr-3 py-1.5 bg-slate-950 border border-slate-800 rounded-lg text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500"
           />
         </div>
 
-        <div className="flex items-center space-x-2 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0 text-xs">
-          <Filter className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+        <div className="flex items-center space-x-1.5 w-full sm:w-auto overflow-x-auto text-xs">
           {[
-            { id: "all", label: "All Records" },
-            { id: "wordDocs", label: "Word Docs (.docx)" },
+            { id: "all", label: "All" },
+            { id: "wordDocs", label: "Word (.docx)" },
             { id: "Cardiology Report", label: "Cardiology" },
             { id: "Genomic Sequencing", label: "Genomic" },
-            { id: "Laboratory Panel", label: "Laboratory" },
+            { id: "Laboratory Panel", label: "Lab" },
           ].map((tab) => (
             <button
               key={tab.id}
               onClick={() => setFilterType(tab.id)}
-              className={`px-2.5 py-1 rounded-lg capitalize whitespace-nowrap transition-all font-medium ${
+              className={`px-2.5 py-1 rounded-lg whitespace-nowrap font-medium transition-colors ${
                 filterType === tab.id
-                  ? "bg-cyan-600 text-white shadow-sm"
-                  : "bg-slate-800 text-slate-400 hover:text-white"
+                  ? "bg-cyan-600 text-white"
+                  : "bg-slate-950 text-slate-400 hover:text-white border border-slate-800"
               }`}
             >
               {tab.label}
@@ -370,149 +366,131 @@ Cryptographically signed via MetaMask & Anchored to Ethereum Sepolia.`;
       {/* Records Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {filteredRecords.length === 0 ? (
-          <div className="col-span-full p-12 text-center bg-slate-900/40 rounded-2xl border border-dashed border-slate-800">
-            <FileText className="w-8 h-8 text-slate-600 mx-auto mb-2" />
-            <p className="text-slate-400 text-sm font-medium">No medical records match your criteria.</p>
-            <p className="text-slate-600 text-xs mt-1">Upload a Word document report with MetaMask signature approval.</p>
+          <div className="col-span-full p-10 text-center bg-slate-900 rounded-xl border border-dashed border-slate-800">
+            <p className="text-slate-400 text-xs">
+              No medical records found. Upload a report to pin it to IPFS.
+            </p>
           </div>
         ) : (
           filteredRecords.map((rec) => (
             <div
               key={rec.id}
-              className={`bg-slate-900/80 border rounded-2xl p-5 shadow-lg flex flex-col justify-between transition-all group ${
-                rec.isWordDoc 
-                  ? "border-blue-900/70 hover:border-blue-600/80 hover:shadow-blue-500/10" 
-                  : "border-slate-800 hover:border-slate-700 hover:shadow-cyan-500/5"
-              }`}
+              className="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col justify-between"
             >
               <div>
-                <div className="flex items-start justify-between">
-                  <div className={`p-2.5 rounded-xl bg-slate-950 border ${
-                    rec.isWordDoc ? "border-blue-800/80 text-blue-400" : "border-slate-800"
-                  }`}>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center space-x-2 min-w-0">
                     {getRecordIcon(rec.recordType, rec.isWordDoc)}
-                  </div>
-                  <div className="flex items-center space-x-1.5 flex-wrap gap-y-1 justify-end">
-                    {rec.isWordDoc && (
-                      <span className="text-[10px] font-bold text-blue-300 bg-blue-950/90 px-2 py-0.5 rounded-full border border-blue-800/80">
-                        DOCX
-                      </span>
-                    )}
-                    <span className="flex items-center text-[10px] font-semibold text-purple-300 bg-purple-950/80 px-2 py-0.5 rounded-full border border-purple-800/60" title="Signed with MetaMask">
-                      <KeyRound className="w-3 h-3 mr-1 text-purple-400" />
-                      MetaMask Approved
-                    </span>
-                    <span className="flex items-center text-[10px] font-semibold text-emerald-400 bg-emerald-950/80 px-2 py-0.5 rounded-full border border-emerald-800/60">
-                      <CheckCircle2 className="w-3 h-3 mr-1" />
-                      IPFS Pin
+                    <span className="text-[11px] text-slate-400 truncate">
+                      {rec.isWordDoc ? "Word Document" : rec.recordType}
                     </span>
                   </div>
+                  <span className="text-[10px] font-mono text-slate-500">
+                    Block #{rec.blockNumber}
+                  </span>
                 </div>
 
-                <h3 className="font-bold text-sm text-white mt-3 line-clamp-1 group-hover:text-cyan-400 transition-colors">
+                <h3 className="font-semibold text-sm text-white mt-2.5 line-clamp-1">
                   {rec.title}
                 </h3>
 
                 {rec.fileName && (
-                  <p className="text-[11px] font-mono text-blue-300/90 flex items-center gap-1 mt-1 truncate">
+                  <p className="text-[11px] font-mono text-blue-300 flex items-center gap-1 mt-1 truncate">
                     <Paperclip className="w-3 h-3 shrink-0" />
                     <span>{rec.fileName}</span>
                   </p>
                 )}
 
-                <p className="text-xs text-slate-400 mt-1 line-clamp-2 leading-relaxed">
-                  {rec.notes}
-                </p>
+                <p className="text-xs text-slate-400 mt-1 line-clamp-2">{rec.notes}</p>
 
-                {/* Hashes Display Section on Card */}
-                <div className="mt-4 pt-3 border-t border-slate-800/80 space-y-2 text-[11px]">
-                  {/* IPFS CIDv1 Hash */}
-                  <div className="flex items-center justify-between gap-1 bg-slate-950/70 px-2 py-1.5 rounded-lg border border-slate-800/80">
-                    <div className="flex items-center space-x-1.5 min-w-0">
-                      <span className="text-[10px] uppercase font-bold text-cyan-400 shrink-0">IPFS CID:</span>
-                      <span className="font-mono text-cyan-300 text-[10px] truncate max-w-[130px] sm:max-w-[170px]">
-                        {rec.ipfsHash}
-                      </span>
-                    </div>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); copyToClipboard(rec.ipfsHash, "IPFS CID"); }}
-                      className="p-1 hover:text-cyan-400 text-slate-500 rounded transition-colors"
-                      title="Copy IPFS CID"
-                    >
-                      <Copy className="w-3 h-3" />
-                    </button>
-                  </div>
-
-                  {/* SHA-256 Checksum Hash */}
-                  <div className="flex items-center justify-between gap-1 bg-slate-950/70 px-2 py-1.5 rounded-lg border border-slate-800/80">
-                    <div className="flex items-center space-x-1.5 min-w-0">
-                      <span className="text-[10px] uppercase font-bold text-amber-400 shrink-0">SHA-256:</span>
-                      <span className="font-mono text-amber-300 text-[10px] truncate max-w-[130px] sm:max-w-[170px]">
-                        {rec.checksum}
-                      </span>
-                    </div>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); copyToClipboard(rec.checksum, "SHA-256 Checksum"); }}
-                      className="p-1 hover:text-amber-400 text-slate-500 rounded transition-colors"
-                      title="Copy SHA-256 Checksum"
-                    >
-                      <Copy className="w-3 h-3" />
-                    </button>
-                  </div>
-
-                  {/* MetaMask Signature Approval Hash */}
-                  {rec.signature && (
-                    <div className="flex items-center justify-between gap-1 bg-slate-950/70 px-2 py-1.5 rounded-lg border border-slate-800/80">
-                      <div className="flex items-center space-x-1.5 min-w-0">
-                        <span className="text-[10px] uppercase font-bold text-purple-400 shrink-0 flex items-center gap-0.5">
-                          <KeyRound className="w-2.5 h-2.5 text-purple-400" /> Sig:
-                        </span>
-                        <span className="font-mono text-purple-300 text-[10px] truncate max-w-[130px] sm:max-w-[170px]">
-                          {rec.signature}
-                        </span>
-                      </div>
+                {/* Clean Hashes Summary */}
+                <div className="mt-3 pt-3 border-t border-slate-800 space-y-1.5 text-[11px] font-mono">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-slate-500">IPFS</span>
+                    <div className="flex items-center gap-1 min-w-0">
+                      <span className="text-cyan-400 truncate max-w-[150px]">{rec.ipfsHash}</span>
                       <button
-                        onClick={(e) => { e.stopPropagation(); copyToClipboard(rec.signature!, "MetaMask Signature"); }}
-                        className="p-1 hover:text-purple-400 text-slate-500 rounded transition-colors"
-                        title="Copy MetaMask Signature"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          copyToClipboard(rec.ipfsHash, "IPFS CID");
+                        }}
+                        className="text-slate-500 hover:text-white"
                       >
                         <Copy className="w-3 h-3" />
                       </button>
                     </div>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-slate-500">SHA-256</span>
+                    <div className="flex items-center gap-1 min-w-0">
+                      <span className="text-amber-300 truncate max-w-[150px]">
+                        {rec.checksum}
+                      </span>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          copyToClipboard(rec.checksum, "SHA-256 Checksum");
+                        }}
+                        className="text-slate-500 hover:text-white"
+                      >
+                        <Copy className="w-3 h-3" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {rec.signature && (
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-slate-500">Sig</span>
+                      <div className="flex items-center gap-1 min-w-0">
+                        <span className="text-purple-300 truncate max-w-[150px]">
+                          {rec.signature}
+                        </span>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            copyToClipboard(rec.signature!, "MetaMask Signature");
+                          }}
+                          className="text-slate-500 hover:text-white"
+                        >
+                          <Copy className="w-3 h-3" />
+                        </button>
+                      </div>
+                    </div>
                   )}
 
-                  {/* Ethereum Transaction Hash */}
-                  <div className="flex items-center justify-between gap-1 text-slate-400 text-[10px] px-1">
-                    <span>Block #{rec.blockNumber} • Tx:</span>
-                    <div className="flex items-center space-x-1">
-                      <span className="font-mono text-emerald-400 truncate max-w-[110px]">{rec.txHash}</span>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-slate-500">Tx</span>
+                    <div className="flex items-center gap-1 min-w-0">
+                      <span className="text-emerald-400 truncate max-w-[150px]">{rec.txHash}</span>
                       <button
-                        onClick={(e) => { e.stopPropagation(); copyToClipboard(rec.txHash, "Tx Hash"); }}
-                        className="p-0.5 hover:text-emerald-400 text-slate-500"
-                        title="Copy Tx Hash"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          copyToClipboard(rec.txHash, "Tx Hash");
+                        }}
+                        className="text-slate-500 hover:text-white"
                       >
-                        <Copy className="w-2.5 h-2.5" />
+                        <Copy className="w-3 h-3" />
                       </button>
                     </div>
                   </div>
                 </div>
               </div>
 
-              <div className="mt-5 pt-3 border-t border-slate-800/80 flex items-center justify-between gap-2">
-                <span className="text-[10px] text-slate-500 font-mono">Size: {rec.fileSize}</span>
+              <div className="mt-4 pt-3 border-t border-slate-800 flex items-center justify-between gap-2">
+                <span className="text-[11px] text-slate-500">{rec.fileSize}</span>
 
                 <div className="flex items-center space-x-1.5">
-                  {rec.downloadUrl ? (
+                  {rec.downloadUrl && (
                     <a
                       href={rec.downloadUrl}
                       download={rec.fileName || "report.docx"}
-                      className="px-2.5 py-1.5 rounded-xl bg-blue-950/80 hover:bg-blue-900 border border-blue-800/80 text-xs font-semibold text-blue-200 flex items-center space-x-1 transition-colors"
-                      title="Download original document file"
+                      className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-medium text-blue-300 flex items-center space-x-1"
                     >
                       <Download className="w-3.5 h-3.5" />
                       <span>Download</span>
                     </a>
-                  ) : null}
+                  )}
 
                   <button
                     onClick={() => {
@@ -520,7 +498,7 @@ Cryptographically signed via MetaMask & Anchored to Ethereum Sepolia.`;
                       setVerificationInput("");
                       setVerificationResult(null);
                     }}
-                    className="px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 flex items-center space-x-1 transition-colors"
+                    className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-medium text-slate-200 flex items-center space-x-1"
                   >
                     <Eye className="w-3.5 h-3.5 text-cyan-400" />
                     <span>Inspect</span>
@@ -532,160 +510,128 @@ Cryptographically signed via MetaMask & Anchored to Ethereum Sepolia.`;
         )}
       </div>
 
-      {/* Post-Upload Cryptographic Proof & Hashes Receipt Dialog */}
+      {/* Post-Upload Receipt Dialog */}
       {receiptRecord && (
-        <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-cyan-800/90 rounded-2xl max-w-xl w-full p-6 shadow-2xl relative animate-in fade-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 bg-slate-950/80 z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-xl max-w-xl w-full p-5 shadow-xl relative">
             <button
               onClick={() => setReceiptRecord(null)}
               className="absolute top-4 right-4 text-slate-400 hover:text-white"
             >
-              <X className="w-5 h-5" />
+              <X className="w-4 h-4" />
             </button>
 
-            <div className="flex items-center space-x-3 mb-4">
-              <div className="p-3 bg-cyan-950 border border-cyan-700 rounded-xl text-cyan-400">
-                <ShieldCheck className="w-6 h-6 animate-pulse" />
-              </div>
-              <div>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-cyan-400">
-                  Cryptographic Attestation Receipt
-                </span>
-                <h3 className="font-bold text-white text-lg">
-                  MetaMask Signature Approved & Anchored to IPFS
-                </h3>
-              </div>
+            <div className="flex items-center space-x-2.5 mb-3">
+              <ShieldCheck className="w-5 h-5 text-emerald-400" />
+              <h3 className="font-bold text-white text-base">Report Anchored to IPFS &amp; Sepolia</h3>
             </div>
 
-            <p className="text-xs text-slate-300 leading-relaxed mb-4">
-              Your clinical report <strong className="text-white font-mono">{receiptRecord.fileName || receiptRecord.title}</strong> has been signed with your MetaMask Ethereum private key, pinned to IPFS, and permanently anchored on Ethereum Sepolia.
+            <p className="text-xs text-slate-400 mb-4">
+              {receiptRecord.fileName || receiptRecord.title} (Block #{receiptRecord.blockNumber})
             </p>
 
-            {/* Hashes Showcase Cards */}
-            <div className="space-y-3 bg-slate-950 p-4 rounded-xl border border-slate-800 font-mono text-xs">
-              {/* 1. IPFS CID Hash */}
-              <div className="space-y-1">
-                <div className="flex items-center justify-between text-slate-400 text-[10px] uppercase font-sans font-bold">
-                  <span className="text-cyan-400 flex items-center gap-1">
-                    <ExternalLink className="w-3 h-3" /> 1. IPFS Content Identifier (CIDv1)
-                  </span>
-                  <button
-                    onClick={() => copyToClipboard(receiptRecord.ipfsHash, "IPFS CID")}
-                    className="hover:text-cyan-300 flex items-center gap-1 font-mono text-[11px]"
-                  >
-                    <Copy className="w-3 h-3" />
-                    <span>Copy CID</span>
-                  </button>
-                </div>
-                <div className="p-2 bg-slate-900 border border-slate-800 rounded-lg text-cyan-300 break-all select-all flex items-center justify-between gap-2">
-                  <span>{receiptRecord.ipfsHash}</span>
-                  <a
-                    href={`https://ipfs.io/ipfs/${receiptRecord.ipfsHash}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="shrink-0 p-1 hover:text-cyan-400 text-slate-500"
-                    title="Open on IPFS Gateway"
-                  >
-                    <ExternalLink className="w-3.5 h-3.5" />
-                  </a>
-                </div>
-              </div>
-
-              {/* 2. SHA-256 Checksum Hash */}
-              <div className="space-y-1">
-                <div className="flex items-center justify-between text-slate-400 text-[10px] uppercase font-sans font-bold">
-                  <span className="text-amber-400 flex items-center gap-1">
-                    <Hash className="w-3 h-3" /> 2. SHA-256 Document Checksum
-                  </span>
-                  <button
-                    onClick={() => copyToClipboard(receiptRecord.checksum, "SHA-256 Checksum")}
-                    className="hover:text-amber-300 flex items-center gap-1 font-mono text-[11px]"
-                  >
-                    <Copy className="w-3 h-3" />
-                    <span>Copy Checksum</span>
-                  </button>
-                </div>
-                <div className="p-2 bg-slate-900 border border-slate-800 rounded-lg text-amber-300 break-all select-all">
-                  {receiptRecord.checksum}
-                </div>
-              </div>
-
-              {/* 3. MetaMask Approval Signature Hash */}
-              {receiptRecord.signature && (
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between text-slate-400 text-[10px] uppercase font-sans font-bold">
-                    <span className="text-purple-400 flex items-center gap-1">
-                      <KeyRound className="w-3 h-3" /> 3. MetaMask EIP-191 Signature Approval
-                    </span>
-                    <button
-                      onClick={() => copyToClipboard(receiptRecord.signature!, "MetaMask Signature")}
-                      className="hover:text-purple-300 flex items-center gap-1 font-mono text-[11px]"
+            <div className="space-y-3 bg-slate-950 p-4 rounded-lg border border-slate-800 font-mono text-xs">
+              <div>
+                <div className="flex items-center justify-between text-slate-400 text-[11px] font-sans mb-1">
+                  <span>IPFS CIDv1</span>
+                  <div className="flex items-center gap-2">
+                    <a
+                      href={`https://ipfs.io/ipfs/${receiptRecord.ipfsHash}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-cyan-400 hover:underline flex items-center gap-1"
                     >
-                      <Copy className="w-3 h-3" />
-                      <span>Copy Signature</span>
+                      <span>Gateway</span>
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
+                    <button
+                      onClick={() => copyToClipboard(receiptRecord.ipfsHash, "IPFS CID")}
+                      className="text-cyan-400 hover:underline"
+                    >
+                      Copy
                     </button>
                   </div>
-                  <div className="p-2 bg-slate-900 border border-slate-800 rounded-lg text-purple-300 break-all select-all">
-                    {receiptRecord.signature}
+                </div>
+                <div className="text-cyan-300 break-all">{receiptRecord.ipfsHash}</div>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between text-slate-400 text-[11px] font-sans mb-1">
+                  <span>SHA-256 Checksum</span>
+                  <button
+                    onClick={() => copyToClipboard(receiptRecord.checksum, "SHA-256 Checksum")}
+                    className="text-amber-400 hover:underline"
+                  >
+                    Copy
+                  </button>
+                </div>
+                <div className="text-amber-300 break-all">{receiptRecord.checksum}</div>
+              </div>
+
+              {receiptRecord.signature && (
+                <div>
+                  <div className="flex items-center justify-between text-slate-400 text-[11px] font-sans mb-1">
+                    <span>MetaMask Signature</span>
+                    <button
+                      onClick={() => copyToClipboard(receiptRecord.signature!, "MetaMask Signature")}
+                      className="text-purple-400 hover:underline"
+                    >
+                      Copy
+                    </button>
                   </div>
-                  <p className="text-[10px] text-slate-400 font-sans">
-                    Signed by Ethereum Account: <span className="font-mono text-white">{receiptRecord.signerAddress || receiptRecord.uploader}</span>
-                  </p>
+                  <div className="text-purple-300 break-all">{receiptRecord.signature}</div>
                 </div>
               )}
 
-              {/* 4. Ethereum Transaction Hash */}
-              <div className="space-y-1">
-                <div className="flex items-center justify-between text-slate-400 text-[10px] uppercase font-sans font-bold">
-                  <span className="text-emerald-400 flex items-center gap-1">
-                    <Lock className="w-3 h-3" /> 4. Ethereum Transaction Hash (Block #{receiptRecord.blockNumber})
-                  </span>
-                  <div className="flex items-center space-x-3">
+              <div>
+                <div className="flex items-center justify-between text-slate-400 text-[11px] font-sans mb-1">
+                  <span>Ethereum Tx Hash</span>
+                  <div className="flex items-center gap-2">
                     <a
-                      href={receiptRecord.sepoliaEtherscanUrl || `https://sepolia.etherscan.io/tx/${receiptRecord.txHash}`}
+                      href={
+                        receiptRecord.sepoliaEtherscanUrl ||
+                        `https://sepolia.etherscan.io/tx/${receiptRecord.txHash}`
+                      }
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-cyan-400 hover:text-cyan-300 flex items-center gap-1 font-mono text-[11px]"
+                      className="text-cyan-400 hover:underline flex items-center gap-1"
                     >
+                      <span>Etherscan</span>
                       <ExternalLink className="w-3 h-3" />
-                      <span>Sepolia Etherscan</span>
                     </a>
                     <button
                       onClick={() => copyToClipboard(receiptRecord.txHash, "Tx Hash")}
-                      className="hover:text-emerald-300 flex items-center gap-1 font-mono text-[11px]"
+                      className="text-emerald-400 hover:underline"
                     >
-                      <Copy className="w-3 h-3" />
-                      <span>Copy Tx Hash</span>
+                      Copy
                     </button>
                   </div>
                 </div>
-                <div className="p-2 bg-slate-900 border border-slate-800 rounded-lg text-emerald-300 break-all select-all">
-                  {receiptRecord.txHash}
-                </div>
+                <div className="text-emerald-300 break-all">{receiptRecord.txHash}</div>
                 {receiptRecord.ipfsCidV0 && (
-                  <p className="text-[10px] text-slate-400 font-mono">
-                    IPFS Legacy CIDv0: <span className="text-slate-300 select-all">{receiptRecord.ipfsCidV0}</span>
+                  <p className="text-[10px] text-slate-500 mt-1">
+                    CIDv0: {receiptRecord.ipfsCidV0}
                   </p>
                 )}
               </div>
             </div>
 
-            <div className="mt-5 flex items-center justify-between">
+            <div className="mt-4 flex items-center justify-between">
               {receiptRecord.downloadUrl && (
                 <a
                   href={receiptRecord.downloadUrl}
                   download={receiptRecord.fileName || "clinical_report.docx"}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-xl flex items-center space-x-1.5 shadow-md shadow-blue-600/30 transition-all"
+                  className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-white text-xs font-medium rounded-lg flex items-center space-x-1.5"
                 >
-                  <Download className="w-4 h-4" />
-                  <span>Download Document</span>
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Download</span>
                 </a>
               )}
               <button
                 onClick={() => setReceiptRecord(null)}
-                className="px-5 py-2 bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold rounded-xl ml-auto shadow-md shadow-cyan-600/20 transition-all"
+                className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-medium rounded-lg ml-auto"
               >
-                Close & View Records
+                Done
               </button>
             </div>
           </div>
@@ -694,231 +640,198 @@ Cryptographically signed via MetaMask & Anchored to Ethereum Sepolia.`;
 
       {/* Record Inspection Modal */}
       {selectedRecord && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-xl w-full p-6 shadow-2xl relative max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-slate-950/80 z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-xl max-w-xl w-full p-5 shadow-xl relative max-h-[90vh] overflow-y-auto space-y-4">
             <button
               onClick={() => setSelectedRecord(null)}
               className="absolute top-4 right-4 text-slate-400 hover:text-white"
             >
-              <X className="w-5 h-5" />
+              <X className="w-4 h-4" />
             </button>
 
-            <div className="flex items-center space-x-3 mb-4">
-              <div className="p-3 bg-slate-950 rounded-xl border border-slate-800">
-                {getRecordIcon(selectedRecord.recordType, selectedRecord.isWordDoc)}
-              </div>
-              <div>
-                <h3 className="font-bold text-white text-base">{selectedRecord.title}</h3>
-                <div className="flex items-center space-x-2 mt-0.5">
-                  <span className="text-xs text-cyan-400 font-medium">{selectedRecord.recordType}</span>
-                  {selectedRecord.isWordDoc && (
-                    <span className="text-[10px] font-bold text-blue-300 bg-blue-950 px-1.5 py-0.5 rounded border border-blue-800">
-                      Microsoft Word (.docx)
-                    </span>
-                  )}
-                  {selectedRecord.signature && (
-                    <span className="text-[10px] font-bold text-purple-300 bg-purple-950 px-1.5 py-0.5 rounded border border-purple-800 flex items-center gap-1">
-                      <KeyRound className="w-3 h-3 text-purple-400" /> MetaMask Approved
-                    </span>
-                  )}
-                </div>
-              </div>
+            <div>
+              <h3 className="font-bold text-white text-base">{selectedRecord.title}</h3>
+              <p className="text-xs text-slate-400 mt-0.5">
+                {selectedRecord.recordType} • Block #{selectedRecord.blockNumber} •{" "}
+                {new Date(selectedRecord.timestamp).toLocaleString()}
+              </p>
             </div>
 
-            {/* Cryptographic Hashes Detail Box */}
-            <div className="space-y-3 bg-slate-950/80 p-4 rounded-xl border border-slate-800 text-xs font-mono">
+            <div className="space-y-2.5 bg-slate-950 p-4 rounded-lg border border-slate-800 text-xs font-mono">
               {selectedRecord.fileName && (
                 <div>
-                  <span className="text-slate-500 block text-[10px] uppercase font-sans">Document File Name:</span>
-                  <span className="text-white font-bold">{selectedRecord.fileName} ({selectedRecord.fileSize})</span>
+                  <span className="text-slate-500 block text-[11px] font-sans">File</span>
+                  <span className="text-white">
+                    {selectedRecord.fileName} ({selectedRecord.fileSize})
+                  </span>
                 </div>
               )}
-              
-              {/* IPFS Hash */}
+
               <div>
-                <div className="flex items-center justify-between">
-                  <span className="text-slate-500 text-[10px] uppercase font-sans">IPFS InterPlanetary Hash (CIDv1):</span>
+                <div className="flex items-center justify-between font-sans text-[11px] text-slate-500">
+                  <span>IPFS CIDv1</span>
                   <button
                     onClick={() => copyToClipboard(selectedRecord.ipfsHash, "IPFS CID")}
-                    className="text-cyan-400 hover:underline text-[10px] font-sans flex items-center gap-1"
+                    className="text-cyan-400 hover:underline"
                   >
-                    <Copy className="w-2.5 h-2.5" /> Copy
+                    Copy
                   </button>
                 </div>
                 <span className="text-cyan-400 break-all">{selectedRecord.ipfsHash}</span>
               </div>
 
-              {/* SHA-256 Checksum */}
               <div>
-                <div className="flex items-center justify-between">
-                  <span className="text-slate-500 text-[10px] uppercase font-sans">On-Chain SHA-256 Checksum:</span>
+                <div className="flex items-center justify-between font-sans text-[11px] text-slate-500">
+                  <span>SHA-256 Checksum</span>
                   <button
                     onClick={() => copyToClipboard(selectedRecord.checksum, "SHA-256 Checksum")}
-                    className="text-amber-400 hover:underline text-[10px] font-sans flex items-center gap-1"
+                    className="text-amber-400 hover:underline"
                   >
-                    <Copy className="w-2.5 h-2.5" /> Copy
+                    Copy
                   </button>
                 </div>
                 <span className="text-amber-400 break-all">{selectedRecord.checksum}</span>
               </div>
 
-              {/* MetaMask Signature */}
               {selectedRecord.signature && (
                 <div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-500 text-[10px] uppercase font-sans">MetaMask Approval Signature (EIP-191):</span>
+                  <div className="flex items-center justify-between font-sans text-[11px] text-slate-500">
+                    <span>MetaMask Signature</span>
                     <button
-                      onClick={() => copyToClipboard(selectedRecord.signature!, "MetaMask Signature")}
-                      className="text-purple-400 hover:underline text-[10px] font-sans flex items-center gap-1"
+                      onClick={() =>
+                        copyToClipboard(selectedRecord.signature!, "MetaMask Signature")
+                      }
+                      className="text-purple-400 hover:underline"
                     >
-                      <Copy className="w-2.5 h-2.5" /> Copy
+                      Copy
                     </button>
                   </div>
                   <span className="text-purple-300 break-all">{selectedRecord.signature}</span>
-                  <span className="text-[10px] text-slate-400 block mt-0.5 font-sans">
-                    Signer: <span className="font-mono text-slate-200">{selectedRecord.signerAddress || selectedRecord.uploader}</span>
-                  </span>
                 </div>
               )}
 
-              {/* Ethereum Tx Hash */}
               <div>
-                <div className="flex items-center justify-between">
-                  <span className="text-slate-500 text-[10px] uppercase font-sans">Ethereum Transaction Hash:</span>
+                <div className="flex items-center justify-between font-sans text-[11px] text-slate-500">
+                  <span>Ethereum Tx Hash</span>
                   <button
                     onClick={() => copyToClipboard(selectedRecord.txHash, "Tx Hash")}
-                    className="text-emerald-400 hover:underline text-[10px] font-sans flex items-center gap-1"
+                    className="text-emerald-400 hover:underline"
                   >
-                    <Copy className="w-2.5 h-2.5" /> Copy
+                    Copy
                   </button>
                 </div>
                 <span className="text-emerald-400 break-all">{selectedRecord.txHash}</span>
               </div>
-
-              <div className="flex justify-between pt-1 text-[11px] font-sans">
-                <span className="text-slate-400">Block #{selectedRecord.blockNumber}</span>
-                <span className="text-slate-400">{new Date(selectedRecord.timestamp).toLocaleString()}</span>
-              </div>
             </div>
 
-            {/* Checksum Verification Box */}
-            <div className="mt-4 p-3.5 bg-slate-950/40 rounded-xl border border-slate-800">
-              <h4 className="text-xs font-bold text-white mb-1.5 flex items-center gap-1.5">
+            {/* Checksum Verifier */}
+            <div className="p-3.5 bg-slate-950 rounded-lg border border-slate-800 space-y-2">
+              <h4 className="text-xs font-semibold text-white flex items-center gap-1.5">
                 <Hash className="w-3.5 h-3.5 text-cyan-400" />
-                Cryptographic Hash & Integrity Verifier
+                Verify SHA-256 Checksum
               </h4>
-              <p className="text-[11px] text-slate-400 mb-2">
-                Verify that this clinical file matches the exact immutable SHA-256 checksum committed on Ethereum:
-              </p>
               <div className="flex gap-2">
                 <input
                   type="text"
-                  placeholder="Paste SHA-256 (or click 'Auto-fill recorded hash')"
+                  placeholder="Paste SHA-256 checksum..."
                   value={verificationInput}
                   onChange={(e) => setVerificationInput(e.target.value)}
                   className="flex-1 bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-white font-mono focus:outline-none focus:border-cyan-500"
                 />
                 <button
                   onClick={() => handleVerify(selectedRecord.id)}
-                  className="px-3 py-1.5 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg text-xs font-semibold"
+                  className="px-3 py-1.5 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg text-xs font-medium"
                 >
                   Verify
                 </button>
               </div>
-              <div className="flex items-center justify-between mt-2">
+              <div className="flex items-center justify-between">
                 <button
                   onClick={() => setVerificationInput(selectedRecord.checksum)}
-                  className="text-[10px] text-cyan-400 hover:underline"
+                  className="text-[11px] text-cyan-400 hover:underline"
                 >
                   Auto-fill recorded hash
                 </button>
                 {verificationResult !== null && (
-                  <span className={`text-[10px] font-bold ${verificationResult ? "text-emerald-400" : "text-rose-400"}`}>
-                    {verificationResult ? "VERIFIED VALID ON-CHAIN" : "CHECKSUM MISMATCH"}
+                  <span
+                    className={`text-[11px] font-semibold ${
+                      verificationResult ? "text-emerald-400" : "text-rose-400"
+                    }`}
+                  >
+                    {verificationResult ? "Verified Match" : "Mismatch"}
                   </span>
                 )}
               </div>
             </div>
 
-            <div className="mt-5 flex items-center justify-between">
+            <div className="flex items-center justify-between">
               {selectedRecord.downloadUrl ? (
                 <a
                   href={selectedRecord.downloadUrl}
                   download={selectedRecord.fileName || "medical_report.docx"}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-xl flex items-center space-x-1.5 shadow-md shadow-blue-600/30"
+                  className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-blue-300 text-xs font-medium rounded-lg flex items-center space-x-1.5"
                 >
-                  <Download className="w-4 h-4" />
-                  <span>Download Original Document</span>
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Download File</span>
                 </a>
               ) : (
-                <span className="text-xs text-slate-500">Metadata sealed</span>
+                <span className="text-xs text-slate-500">Metadata record</span>
               )}
               <button
                 onClick={() => setSelectedRecord(null)}
-                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-xl"
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium rounded-lg"
               >
-                Close Inspector
+                Close
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Upload Word Document / Medical Report Modal */}
+      {/* Upload Modal */}
       {isUploadOpen && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl relative max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-slate-950/80 z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-xl max-w-lg w-full p-5 shadow-xl relative max-h-[90vh] overflow-y-auto">
             <button
               onClick={() => setIsUploadOpen(false)}
               className="absolute top-4 right-4 text-slate-400 hover:text-white"
             >
-              <X className="w-5 h-5" />
+              <X className="w-4 h-4" />
             </button>
 
-            <h3 className="font-bold text-white text-base flex items-center gap-2 mb-1">
-              <UploadCloud className="w-5 h-5 text-cyan-400" />
-              Upload Medical Report (MetaMask Signature Approval Required)
-            </h3>
+            <h3 className="font-bold text-white text-base mb-1">Upload Medical Report</h3>
             <p className="text-xs text-slate-400 mb-4">
-              Select a Word Document (.docx, .doc) or report. Before storing to IPFS, you will be prompted to sign an on-chain authorization challenge with your Ethereum wallet.
+              Select a Word (.docx/.doc) or PDF file, approve with MetaMask, and pin to IPFS.
             </p>
 
-            {/* Upload Progress Stepper */}
             {isSubmitting && (
-              <div className="p-3 bg-slate-950 rounded-xl border border-cyan-800/80 mb-4 space-y-2">
-                <span className="text-xs font-bold text-cyan-300 block flex items-center gap-2">
-                  <div className="w-3.5 h-3.5 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
-                  {uploadStep === "hashing" && "Calculating SHA-256 Checksum & IPFS CID..."}
-                  {uploadStep === "waiting_signature" && "Waiting for MetaMask Signature Approval..."}
-                  {uploadStep === "uploading_ipfs" && "Signature verified! Storing to IPFS..."}
-                  {uploadStep === "anchoring_eth" && "Anchoring cryptographic digest to Ethereum Sepolia..."}
+              <div className="p-3 bg-slate-950 rounded-lg border border-cyan-800 mb-4 text-xs text-cyan-300 flex items-center gap-2">
+                <div className="w-3.5 h-3.5 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
+                <span>
+                  {uploadStep === "hashing" && "Hashing file..."}
+                  {uploadStep === "waiting_signature" && "Waiting for MetaMask signature..."}
+                  {uploadStep === "uploading_ipfs" && "Pinning to IPFS..."}
+                  {uploadStep === "anchoring_eth" && "Anchoring to Ethereum Sepolia..."}
                 </span>
-                <p className="text-[11px] text-slate-400 leading-tight">
-                  {uploadStep === "waiting_signature" 
-                    ? "Please click 'Sign' in your MetaMask extension to approve this document." 
-                    : "Cryptographically securing medical telemetry on decentralized nodes."}
-                </p>
               </div>
             )}
 
-            <form onSubmit={handleUpload} className="space-y-4">
-              {/* Word Document Upload Dropzone */}
+            <form onSubmit={handleUpload} className="space-y-3.5">
               <div>
                 <div className="flex items-center justify-between mb-1.5">
-                  <label className="text-xs font-semibold text-slate-200 flex items-center gap-1.5">
-                    <FileText className="w-4 h-4 text-blue-400" />
-                    Select Word Document File (.docx / .doc)
+                  <label className="text-xs font-medium text-slate-300">
+                    Document (.docx / .doc / .pdf)
                   </label>
                   <button
                     type="button"
                     onClick={generateSampleWordDoc}
-                    className="text-[11px] text-cyan-400 hover:underline flex items-center gap-1 font-medium"
+                    className="text-[11px] text-cyan-400 hover:underline"
                   >
-                    <span>Use Sample .docx Report</span>
+                    Use Sample .docx
                   </button>
                 </div>
 
-                <div className="border-2 border-dashed border-slate-700 hover:border-cyan-500 rounded-2xl p-4 bg-slate-950/70 text-center transition-colors">
+                <div className="border border-dashed border-slate-700 hover:border-cyan-500 rounded-lg p-4 bg-slate-950 text-center transition-colors">
                   <input
                     type="file"
                     id="doc-upload-input"
@@ -929,50 +842,41 @@ Cryptographically signed via MetaMask & Anchored to Ethereum Sepolia.`;
                   <label htmlFor="doc-upload-input" className="cursor-pointer block">
                     {selectedFile ? (
                       <div className="space-y-1">
-                        <div className="w-10 h-10 rounded-xl bg-blue-950/80 text-blue-400 border border-blue-800 flex items-center justify-center mx-auto mb-2">
-                          <Check className="w-5 h-5" />
-                        </div>
-                        <p className="text-xs font-bold text-white truncate max-w-xs mx-auto">{selectedFile.name}</p>
-                        <p className="text-[11px] text-slate-400">
-                          {(selectedFile.size / 1024).toFixed(1)} KB • {selectedFile.type || "Document"}
+                        <Check className="w-5 h-5 text-emerald-400 mx-auto" />
+                        <p className="text-xs font-medium text-white truncate max-w-xs mx-auto">
+                          {selectedFile.name}
                         </p>
-                        <span className="text-[10px] text-cyan-400 hover:underline block pt-1">
-                          Click to change file
-                        </span>
+                        <p className="text-[11px] text-slate-400">
+                          {(selectedFile.size / 1024).toFixed(1)} KB
+                        </p>
                       </div>
                     ) : (
-                      <div className="space-y-1 py-2">
-                        <FileText className="w-8 h-8 text-slate-500 mx-auto mb-1 group-hover:text-cyan-400" />
-                        <p className="text-xs font-semibold text-slate-200">
-                          Choose Microsoft Word Document (.docx, .doc) or PDF
-                        </p>
-                        <p className="text-[10px] text-slate-500">
-                          File will be hashed, signed with MetaMask, and pinned to IPFS
-                        </p>
-                      </div>
+                      <p className="text-xs text-slate-300 py-2">
+                        Click to choose a .docx, .doc, or .pdf file
+                      </p>
                     )}
                   </label>
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">Report Title</label>
+                <label className="block text-xs font-medium text-slate-300 mb-1">Title</label>
                 <input
                   type="text"
-                  placeholder="e.g. 24-Hour Ambulatory Holter ECG Evaluation"
+                  placeholder="e.g. Ambulatory Holter ECG Evaluation"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500"
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">Category</label>
+                <label className="block text-xs font-medium text-slate-300 mb-1">Category</label>
                 <select
                   value={recordType}
                   onChange={(e) => setRecordType(e.target.value as any)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500"
                 >
                   <option value="Cardiology Report">Cardiology Report</option>
                   <option value="Genomic Sequencing">Genomic Sequencing</option>
@@ -983,71 +887,52 @@ Cryptographically signed via MetaMask & Anchored to Ethereum Sepolia.`;
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">Clinical Notes & Findings</label>
+                <label className="block text-xs font-medium text-slate-300 mb-1">Notes</label>
                 <textarea
                   rows={3}
-                  placeholder="Enter physician observations, summary findings, diagnostic impressions..."
+                  placeholder="Summary findings..."
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500"
                 />
               </div>
 
-              {/* MetaMask Signature Approval & Sepolia Gas Options */}
-              <div className="p-3 bg-purple-950/40 rounded-xl border border-purple-800/80 text-[11px] text-purple-200 space-y-2">
-                <span className="font-semibold text-purple-300 flex items-center gap-1">
-                  <KeyRound className="w-3.5 h-3.5 text-purple-400" />
-                  MetaMask Signature Approval & Sepolia Anchoring:
-                </span>
-                <p className="text-slate-300 leading-relaxed">
-                  Your Ethereum wallet will request an EIP-191 personal signature to authorize pinning this report to IPFS (authentic CIDv1/CIDv0) and anchoring its SHA-256 digest.
-                </p>
-                <div className="pt-1.5 border-t border-purple-800/50 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                  <label className="flex items-center space-x-2 cursor-pointer text-slate-200 font-medium">
-                    <input
-                      type="checkbox"
-                      checked={useSepoliaGas}
-                      onChange={(e) => setUseSepoliaGas(e.target.checked)}
-                      className="rounded border-purple-700 bg-slate-950 text-cyan-500 focus:ring-cyan-500"
-                    />
-                    <span>Broadcast real Sepolia tx (uses Sepolia ETH gas)</span>
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => setIsFaucetOpen(true)}
-                    className="text-amber-300 hover:text-amber-200 font-semibold flex items-center space-x-1 text-[11px] underline"
-                  >
-                    <Coins className="w-3 h-3 text-amber-400" />
-                    <span>Get Free Sepolia ETH</span>
-                  </button>
-                </div>
+              <div className="p-3 bg-slate-950 rounded-lg border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                <label className="flex items-center space-x-2 cursor-pointer text-slate-200">
+                  <input
+                    type="checkbox"
+                    checked={useSepoliaGas}
+                    onChange={(e) => setUseSepoliaGas(e.target.checked)}
+                    className="rounded border-slate-700 bg-slate-950 text-cyan-500"
+                  />
+                  <span>Broadcast real Sepolia tx</span>
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setIsFaucetOpen(true)}
+                  className="text-amber-300 hover:underline flex items-center space-x-1 text-[11px]"
+                >
+                  <Coins className="w-3 h-3" />
+                  <span>Get Sepolia ETH</span>
+                </button>
               </div>
 
-              <div className="flex justify-end space-x-2 pt-2">
+              <div className="flex justify-end space-x-2 pt-1">
                 <button
                   type="button"
                   onClick={() => setIsUploadOpen(false)}
                   disabled={isSubmitting}
-                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-xl"
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium rounded-lg"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="px-5 py-2.5 bg-gradient-to-r from-blue-600 via-cyan-600 to-teal-600 hover:from-blue-500 hover:to-teal-500 text-white text-xs font-bold rounded-xl shadow-md disabled:opacity-50 flex items-center gap-1.5"
+                  className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-medium rounded-lg disabled:opacity-50 flex items-center gap-1.5"
                 >
-                  {isSubmitting ? (
-                    <>
-                      <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      <span>{uploadStep === "waiting_signature" ? "Sign in MetaMask..." : "Processing & IPFS..."}</span>
-                    </>
-                  ) : (
-                    <>
-                      <KeyRound className="w-3.5 h-3.5" />
-                      <span>Sign with MetaMask & Anchor to IPFS</span>
-                    </>
-                  )}
+                  <KeyRound className="w-3.5 h-3.5" />
+                  <span>{isSubmitting ? "Processing..." : "Sign & Upload"}</span>
                 </button>
               </div>
             </form>
@@ -1055,7 +940,6 @@ Cryptographically signed via MetaMask & Anchored to Ethereum Sepolia.`;
         </div>
       )}
 
-      {/* Sepolia Faucet Hub Modal */}
       <SepoliaFaucetModal
         isOpen={isFaucetOpen}
         onClose={() => setIsFaucetOpen(false)}

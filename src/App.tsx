@@ -33,33 +33,33 @@ const MainDashboard: React.FC = () => {
     switch (tab) {
       case "vitals":
         return {
-          title: "Real-Time Biometric Telemetry & Clinical Signals",
-          subtitle: "Continuous physiological sensor monitoring with real-time anomaly detection",
+          title: "Live Biometrics",
+          subtitle: "Real-time vital signs & telemetry",
         };
       case "records":
         return {
-          title: "Decentralized Medical Records Ledger",
-          subtitle: "Cryptographically verified clinical reports anchored to Ethereum blockchain via IPFS",
+          title: "Medical Records",
+          subtitle: "IPFS-pinned & Ethereum-verified reports",
         };
       case "access":
         return {
-          title: "Access Control & Physician Clearances",
-          subtitle: "Granular patient-controlled smart contract authorization policies",
+          title: "Access Control",
+          subtitle: "Manage doctor permissions & audit logs",
         };
       case "emergency":
         return {
-          title: "Emergency Break-Glass Protocol",
-          subtitle: "Time-bound 24-hour cryptographic emergency medical unlock and immutable audit log",
+          title: "Emergency Protocol",
+          subtitle: "24-hour break-glass medical override",
         };
       case "provider":
         return {
-          title: "Healthcare Provider Clinical Portal",
-          subtitle: "Physician directory lookup, authorized biometric evaluation, and signed clinical notes",
+          title: "Provider Portal",
+          subtitle: "Patient lookup, reports & clinical notes",
         };
       case "blockchain":
         return {
-          title: "On-Chain Ledger Explorer & Contract Inspector",
-          subtitle: "Real-time block stream, transaction receipts, and MediChain smart contract interface",
+          title: "Chain Explorer",
+          subtitle: "Sepolia transactions & smart contract",
         };
     }
   };
